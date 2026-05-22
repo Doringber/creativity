@@ -34,35 +34,102 @@ def cli() -> None:
     help="Git log lookback window (anything `git log --since=...` accepts).",
 )
 @click.option(
-    "--ticket",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="Path to a Jira ticket dump (markdown or JSON). Optional for v1.",
-)
-@click.option(
     "--llm/--no-llm",
     default=False,
     show_default=True,
     help="Use the local LLM to rank and explain gaps. Off by default in v1 "
     "so the heuristic pass works without any model.",
 )
-def analyze(repo: Path, since: str, ticket: Path | None, llm: bool) -> None:
+@click.option(
+    "--format",
+    "out_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    show_default=True,
+)
+def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
     """Find integration-test gaps in a Python repo.
 
-    Walks `git log` over the lookback window, finds files that touch a real
-    boundary (DB, queue, cache, async, external API) and lack an
-    integration test alongside, and emits a gap report.
+    Walks every .py file, parses imports, flags modules that touch a real
+    boundary (DB, queue, cache, cloud, HTTP client) without an integration
+    test alongside. Cross-references the git log over the lookback window
+    so each gap is annotated with the commits and Jira tickets that
+    touched the file.
     """
+    from .analyze import analyze_repo
+    from .sources import GitSource
+
+    if llm:
+        console.print(
+            "[yellow]--llm requested but the LLM re-ranker lands in commit 5; "
+            "running heuristic-only.[/yellow]"
+        )
+
+    try:
+        git_signals = list(GitSource(repo).fetch(since=since, max_count=500))
+    except Exception as e:
+        console.print(f"[red]could not read git log:[/red] {e}")
+        git_signals = []
+
+    gaps = analyze_repo(repo, git_signals=git_signals)
+
+    if out_format == "json":
+        import json
+        payload = [
+            {
+                "file": str(g.file),
+                "severity": g.severity,
+                "coverage": g.coverage,
+                "kinds": [k.code for k in g.kinds],
+                "boundaries": [
+                    {"module": h.module, "kind": h.kind.code, "line": h.line}
+                    for h in g.hits
+                ],
+                "tests": [
+                    {"path": str(t.path.relative_to(repo.resolve())), "shape": t.shape}
+                    for t in g.tests
+                ],
+                "touches": g.touches,
+                "tickets": g.tickets,
+            }
+            for g in gaps
+        ]
+        click.echo(json.dumps(payload, indent=2))
+        return
+
     console.print(
         Panel.fit(
             f"[bold]analyze[/bold] {repo}\n"
             f"since: {since}\n"
-            f"ticket: {ticket or '(none)'}\n"
-            f"llm: {'on' if llm else 'off (heuristic-only)'}",
+            f"gaps: {len(gaps)}",
             title="qa-agent",
             border_style="cyan",
         )
     )
-    console.print("[yellow]stub — wiring for `analyze` lands in commit 2.[/yellow]")
+    if not gaps:
+        console.print("[green]no integration-test gaps found.[/green]")
+        return
+
+    sev_color = {"high": "red", "med": "yellow", "ok": "green"}
+    for i, g in enumerate(gaps, start=1):
+        kinds = ", ".join(f"{k.label}" for k in g.kinds)
+        console.print(
+            f"\n[bold]{i}.[/bold] [{sev_color[g.severity]}]{g.severity.upper()}[/]"
+            f"  [bold]{g.file}[/bold]"
+        )
+        console.print(f"   boundaries: {kinds}")
+        if g.tests:
+            shapes = ", ".join(f"{t.path.name} ({t.shape})" for t in g.tests)
+            console.print(f"   tests: {shapes}")
+        else:
+            console.print("   tests: [red]none[/red]")
+        if g.touches:
+            console.print(
+                f"   touched in window: {len(g.touches)} commit(s) — {', '.join(g.touches[:5])}"
+                + (" ..." if len(g.touches) > 5 else "")
+            )
+        if g.tickets:
+            console.print(f"   ticket refs: {', '.join(g.tickets)}")
 
 
 @cli.command()
