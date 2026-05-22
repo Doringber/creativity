@@ -37,8 +37,22 @@ def cli() -> None:
     "--llm/--no-llm",
     default=False,
     show_default=True,
-    help="Use the local LLM to rank and explain gaps. Off by default in v1 "
-    "so the heuristic pass works without any model.",
+    help="Run the LLM re-rank pass after the heuristic. Backend is taken "
+    "from QA_AGENT_LLM_BACKEND (ollama | anthropic | dry-run).",
+)
+@click.option(
+    "--llm-dry-run",
+    is_flag=True,
+    default=False,
+    help="Force the LLM backend to `dry-run` (no model call), useful for "
+    "verifying prompt construction without a model.",
+)
+@click.option(
+    "--use-jira/--no-jira",
+    default=False,
+    show_default=True,
+    help="Pull Jira tickets referenced by recent commits and include their "
+    "text in the LLM prompt. Requires QA_AGENT_ATLASSIAN_* env vars.",
 )
 @click.option(
     "--format",
@@ -47,23 +61,25 @@ def cli() -> None:
     default="text",
     show_default=True,
 )
-def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
+def analyze(
+    repo: Path,
+    since: str,
+    llm: bool,
+    llm_dry_run: bool,
+    use_jira: bool,
+    out_format: str,
+) -> None:
     """Find integration-test gaps in a Python repo.
 
     Walks every .py file, parses imports, flags modules that touch a real
     boundary (DB, queue, cache, cloud, HTTP client) without an integration
     test alongside. Cross-references the git log over the lookback window
     so each gap is annotated with the commits and Jira tickets that
-    touched the file.
+    touched the file. With --llm, the LLM re-rank pass adds a rationale,
+    likely bug class, and suggested test name per gap.
     """
     from .analyze import analyze_repo
     from .sources import GitSource
-
-    if llm:
-        console.print(
-            "[yellow]--llm requested but the LLM re-ranker lands in commit 5; "
-            "running heuristic-only.[/yellow]"
-        )
 
     try:
         git_signals = list(GitSource(repo).fetch(since=since, max_count=500))
@@ -73,27 +89,31 @@ def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
 
     gaps = analyze_repo(repo, git_signals=git_signals)
 
+    ticket_signals: list = []
+    if (llm or out_format == "json") and use_jira:
+        ticket_signals = _pull_referenced_tickets(gaps, git_signals)
+
+    ranked = []
+    if llm and gaps:
+        from .llm import LlmConfig, LlmUnavailable, get_llm
+        from .rerank import rerank
+
+        cfg = LlmConfig.from_env()
+        if llm_dry_run:
+            cfg = LlmConfig(backend="dry-run", model=cfg.model, base_url=None, api_key=None)
+        try:
+            client = get_llm(cfg)
+        except LlmUnavailable as e:
+            console.print(f"[red]LLM unavailable:[/red] {e}")
+            client = None
+        if client is not None:
+            def _progress(i: int, total: int, gap) -> None:
+                console.print(f"[dim]llm rerank {i}/{total} — {gap.file}[/dim]")
+            ranked = rerank(gaps, client, repo, ticket_signals=ticket_signals, on_progress=_progress)
+
     if out_format == "json":
         import json
-        payload = [
-            {
-                "file": str(g.file),
-                "severity": g.severity,
-                "coverage": g.coverage,
-                "kinds": [k.code for k in g.kinds],
-                "boundaries": [
-                    {"module": h.module, "kind": h.kind.code, "line": h.line}
-                    for h in g.hits
-                ],
-                "tests": [
-                    {"path": str(t.path.relative_to(repo.resolve())), "shape": t.shape}
-                    for t in g.tests
-                ],
-                "touches": g.touches,
-                "tickets": g.tickets,
-            }
-            for g in gaps
-        ]
+        payload = [_gap_to_json(g, repo, _verdict_for(g, ranked)) for g in gaps]
         click.echo(json.dumps(payload, indent=2))
         return
 
@@ -101,7 +121,8 @@ def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
         Panel.fit(
             f"[bold]analyze[/bold] {repo}\n"
             f"since: {since}\n"
-            f"gaps: {len(gaps)}",
+            f"gaps: {len(gaps)}\n"
+            f"llm: {'on (' + (ranked[0].verdict.raw and 'completed' or 'errored') + ')' if ranked else 'off'}",
             title="qa-agent",
             border_style="cyan",
         )
@@ -110,8 +131,13 @@ def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
         console.print("[green]no integration-test gaps found.[/green]")
         return
 
+    iterable = (
+        ((rg.final_rank, rg.gap, rg.verdict) for rg in ranked)
+        if ranked
+        else ((i, g, None) for i, g in enumerate(gaps, start=1))
+    )
     sev_color = {"high": "red", "med": "yellow", "ok": "green"}
-    for i, g in enumerate(gaps, start=1):
+    for i, g, verdict in iterable:
         kinds = ", ".join(f"{k.label}" for k in g.kinds)
         console.print(
             f"\n[bold]{i}.[/bold] [{sev_color[g.severity]}]{g.severity.upper()}[/]"
@@ -130,6 +156,86 @@ def analyze(repo: Path, since: str, llm: bool, out_format: str) -> None:
             )
         if g.tickets:
             console.print(f"   ticket refs: {', '.join(g.tickets)}")
+        if verdict is not None and verdict.rationale:
+            console.print(f"   [cyan]rationale:[/cyan] {verdict.rationale}")
+            if verdict.likely_bug_class and verdict.likely_bug_class != "other":
+                console.print(
+                    f"   [cyan]likely bug:[/cyan] {verdict.likely_bug_class}"
+                    f"  [dim]({verdict.confidence})[/dim]"
+                )
+            if verdict.suggested_test_name:
+                console.print(
+                    f"   [cyan]suggested test:[/cyan] {verdict.suggested_test_name}()"
+                )
+            for step in verdict.suggested_scenario:
+                console.print(f"     [dim]·[/dim] {step}")
+
+
+def _verdict_for(gap, ranked: list):
+    for rg in ranked:
+        if rg.gap is gap:
+            return rg.verdict
+    return None
+
+
+def _gap_to_json(g, repo: Path, verdict) -> dict:
+    out = {
+        "file": str(g.file),
+        "severity": g.severity,
+        "coverage": g.coverage,
+        "kinds": [k.code for k in g.kinds],
+        "boundaries": [
+            {"module": h.module, "kind": h.kind.code, "line": h.line, "via": h.via}
+            for h in g.hits
+        ],
+        "tests": [
+            {"path": str(t.path.relative_to(repo.resolve())), "shape": t.shape}
+            for t in g.tests
+        ],
+        "touches": g.touches,
+        "tickets": g.tickets,
+    }
+    if verdict is not None:
+        out["llm"] = {
+            "rationale": verdict.rationale,
+            "likely_bug_class": verdict.likely_bug_class,
+            "suggested_test_name": verdict.suggested_test_name,
+            "suggested_scenario": verdict.suggested_scenario,
+            "confidence": verdict.confidence,
+            "rerank_delta": verdict.rerank_delta,
+        }
+    return out
+
+
+def _pull_referenced_tickets(gaps: list, git_signals: list) -> list:
+    """Best-effort fetch of every Jira key mentioned by any commit. Silent
+    failure: a missing token just means tickets won't be included in the
+    LLM prompt."""
+    from .config import AtlassianConfig, JiraScope
+    from .sources import AtlassianClient, JiraSource
+
+    keys: set[str] = set()
+    for g in gaps:
+        keys.update(g.tickets)
+    for s in git_signals:
+        keys.update(s.metadata.get("ticket_refs") or [])
+    if not keys:
+        return []
+    cfg = AtlassianConfig.from_env()
+    if not cfg.configured:
+        return []
+    out: list = []
+    try:
+        with AtlassianClient(cfg) as client:
+            jira = JiraSource(client, JiraScope(projects=(), jql_window=""))
+            for key in sorted(keys):
+                try:
+                    out.append(jira.get(key))
+                except Exception:
+                    continue
+    except Exception:
+        return []
+    return out
 
 
 @cli.command()

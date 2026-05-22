@@ -296,27 +296,28 @@ def _propagate(
 ) -> dict[str, list[BoundaryHit]]:
     """Return module → all boundary hits, propagated through local imports.
 
-    Bounded BFS; cycles are broken by the visited set.
+    `BoundaryHit.via` names the module that DIRECTLY contains the import
+    (or None when the import is in the starting module itself). Cycles
+    are broken by the visited set.
     """
     out: dict[str, list[BoundaryHit]] = {}
-    for start, f in facts_by_module.items():
+    for start in facts_by_module:
         seen: set[str] = {start}
-        stack: list[tuple[str, str | None]] = [(start, None)]
+        stack: list[str] = [start]
         hits: list[BoundaryHit] = []
         while stack:
-            mod, via = stack.pop()
+            mod = stack.pop()
             current = facts_by_module.get(mod)
             if current is None:
                 continue
+            via = None if mod == start else mod
             for h in current.direct_boundaries:
-                hits.append(
-                    BoundaryHit(module=h.module, kind=h.kind, line=h.line, via=via)
-                )
+                hits.append(BoundaryHit(module=h.module, kind=h.kind, line=h.line, via=via))
             for imp_mod, _ in current.local_imports:
                 if imp_mod in seen:
                     continue
                 seen.add(imp_mod)
-                stack.append((imp_mod, mod if via is None else via))
+                stack.append(imp_mod)
         out[start] = hits
     return out
 

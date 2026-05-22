@@ -64,6 +64,19 @@ locally (via Ollama) keeps all of that on your machine. The LLM client is
 abstracted — swap to the Anthropic API in one line if you want more horsepower
 for a specific run.
 
+## The core rule — integration tests only
+
+The agent **only writes real integration tests**. Never unit tests, never
+mocked tests, never tests against in-memory fakes. Every test the agent
+proposes runs the actual boundary library (SQLAlchemy → real SQL Server
+via `testcontainers`; redis-py → real Redis via `testcontainers`; boto3
+→ LocalStack; httpx → a real test server). If a test cannot reach a real
+instance of the dependency, the agent refuses to write it.
+
+Existing mock-shaped tests in your codebase are evidence of the gap the
+agent exists to fill. They are not a target to imitate, augment, or
+preserve.
+
 ## Human in the loop
 
 The agent never modifies your code or your tests without a human approving the
