@@ -8,6 +8,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
+from .config import AtlassianConfig, ConfluenceScope, JiraScope
 
 console = Console()
 
@@ -112,6 +113,112 @@ def run(test_path: Path, triage: bool) -> None:
         )
     )
     console.print("[yellow]stub — wiring for `run` lands in commit 5.[/yellow]")
+
+
+@cli.group()
+def sources() -> None:
+    """Inspect and probe the configured signal sources (git, Jira, Confluence)."""
+
+
+@sources.command("probe")
+@click.option(
+    "--repo",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=Path.cwd(),
+    show_default=True,
+    help="Repo to probe for the git source.",
+)
+@click.option(
+    "--since",
+    default="2 weeks ago",
+    show_default=True,
+    help="Git log lookback for the probe.",
+)
+@click.option(
+    "--jira-limit",
+    type=int,
+    default=5,
+    show_default=True,
+)
+@click.option(
+    "--confluence-limit",
+    type=int,
+    default=5,
+    show_default=True,
+)
+def sources_probe(repo: Path, since: str, jira_limit: int, confluence_limit: int) -> None:
+    """End-to-end smoke test of every configured source.
+
+    Reports the configuration in use, fetches a small sample from each
+    source, and prints what came back. Use this to verify auth + scope
+    before running `analyze`.
+    """
+    from .sources import AtlassianClient, ConfluenceSource, GitSource, JiraSource
+
+    atl_cfg = AtlassianConfig.from_env()
+    jira_scope = JiraScope.from_env()
+    conf_scope = ConfluenceScope.from_env()
+
+    config_table = Table(title="qa-agent sources — configuration", show_lines=False)
+    config_table.add_column("knob")
+    config_table.add_column("value")
+    config_table.add_row("repo", str(repo))
+    config_table.add_row("git since", since)
+    config_table.add_row("atlassian site", atl_cfg.site or "[red](unset)[/red]")
+    config_table.add_row("atlassian email", atl_cfg.email or "[red](unset)[/red]")
+    config_table.add_row(
+        "atlassian token",
+        "[green](set)[/green]" if atl_cfg.api_token else "[red](unset)[/red]",
+    )
+    config_table.add_row("jira projects", ", ".join(jira_scope.projects) or "[yellow](all)[/yellow]")
+    config_table.add_row("jira window", jira_scope.jql_window)
+    config_table.add_row(
+        "confluence spaces",
+        ", ".join(conf_scope.space_keys) or "[yellow](none — Confluence skipped)[/yellow]",
+    )
+    console.print(config_table)
+
+    # git
+    console.rule("[cyan]git")
+    try:
+        git = GitSource(repo)
+        git_signals = list(git.fetch(since=since, max_count=jira_limit))
+        if not git_signals:
+            console.print("[yellow]no commits in window[/yellow]")
+        for s in git_signals:
+            console.print(f"  [dim]{s.metadata['short']}[/dim] {s.title}")
+            refs = s.metadata.get("ticket_refs") or []
+            if refs:
+                console.print(f"    [dim]ticket refs:[/dim] {', '.join(refs)}")
+    except Exception as e:
+        console.print(f"[red]git probe failed:[/red] {e}")
+
+    # jira + confluence
+    if not atl_cfg.configured:
+        console.rule("[yellow]jira + confluence skipped (atlassian not configured)")
+        return
+
+    with AtlassianClient(atl_cfg) as client:
+        console.rule("[cyan]jira")
+        try:
+            jira = JiraSource(client, jira_scope)
+            for s in jira.fetch(limit=jira_limit):
+                console.print(f"  [dim]{s.id}[/dim] [{s.metadata.get('status')}] {s.title}")
+        except Exception as e:
+            console.print(f"[red]jira probe failed:[/red] {e}")
+
+        console.rule("[cyan]confluence")
+        if not conf_scope.space_keys:
+            console.print("[yellow]no QA_AGENT_CONFLUENCE_SPACES configured — skipping[/yellow]")
+        else:
+            try:
+                conf = ConfluenceSource(client, conf_scope)
+                for s in conf.fetch(limit_per_space=confluence_limit, with_body=False):
+                    console.print(
+                        f"  [dim]{s.metadata.get('space_key')}/{s.id}[/dim] {s.title}"
+                    )
+            except Exception as e:
+                console.print(f"[red]confluence probe failed:[/red] {e}")
 
 
 @cli.group()

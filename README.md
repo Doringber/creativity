@@ -37,8 +37,25 @@ Early scaffold. See `ROADMAP.md` for the slice plan.
 
 ```bash
 uv sync --extra llm --extra runner --extra memory
+cp .env.example .env       # then fill in your Atlassian + LLM creds
 qa-agent --help
+qa-agent sources probe     # smoke-test git + Jira + Confluence
 ```
+
+## Signal sources
+
+The agent triangulates three signal streams:
+
+| source     | what it tells the agent                                   |
+| ---------- | --------------------------------------------------------- |
+| git        | what we actually built (commits, changed files, ticket refs) |
+| Jira       | what we said we'd change (tickets, acceptance criteria)   |
+| Confluence | how the system is supposed to work (runbooks, ADRs)       |
+
+`triage` cannot decide `test-bug` vs `code-bug` without all three.
+
+Configuration lives in `.env` (see `.env.example`). Credentials never
+reach the repo.
 
 ## Why local LLM by default
 
