@@ -95,10 +95,13 @@ def _route_to_json(r) -> dict:
         "source": r.source,
         "legs": [
             {
+                "mode": leg.mode.value,
                 "summary": leg.summary,
                 "distance_m": leg.distance_m,
                 "duration_s": leg.duration_s,
                 "duration_in_traffic_s": leg.duration_in_traffic_s,
+                "departure_time": leg.departure_time.isoformat() if leg.departure_time else None,
+                "arrival_time": leg.arrival_time.isoformat() if leg.arrival_time else None,
             }
             for leg in r.legs
         ],
