@@ -1,57 +1,58 @@
-"""FastMCP server entry point.
+"""FastMCP entry point.
 
-This commit only registers the `health` tool — enough to verify the MCP
-handshake with Claude. Real tools (`plan_route`, `morning_briefing`, ...)
-land in later commits as their underlying sources come online.
+Owns nothing — defers to `app.py` for the MCP singleton + config, and to
+the `tools` package for tool registration. Side-effecting import of
+`tools` triggers `@mcp.tool()` registration of every tool module.
 """
 
 from __future__ import annotations
 
 import sys
 
-from fastmcp import FastMCP
-
+from . import tools  # noqa: F401  (side-effecting registration)
 from . import __version__
-from .config import Config
-from .store import open_store
-
-
-mcp = FastMCP("israel-transit")
+from .app import get_config, get_store, mcp
 
 
 @mcp.tool()
 def health() -> dict:
-    """Return server status, version, and which capabilities are wired.
-
-    Use this first when connecting from Claude to confirm the MCP is up
-    and to see which features (driving / transit / weather) are available
-    given your current configuration.
-    """
-    cfg = Config.from_env()
-    store = open_store(cfg.store_dir / "store.db")
-    try:
-        saved_count = len(store.list_routes())
-    finally:
-        store.close()
+    """Return server status, version, and which capabilities are wired."""
+    cfg = get_config()
+    store = get_store()
+    saved = len(store.list_routes())
     return {
         "name": "israel-transit-mcp",
         "version": __version__,
         "store_dir": str(cfg.store_dir),
-        "saved_routes": saved_count,
+        "saved_routes": saved,
         "capabilities": {
             "driving": cfg.driving_available,
-            "transit": False,  # wired in a later commit
-            "news_rss": False,
+            "transit": False,
+            "news_rss": True,
             "weather": False,
         },
-        "configured": {
-            "google_maps_api_key": bool(cfg.google_maps_api_key),
-        },
+        "tools": sorted(_registered_tool_names()),
     }
 
 
+def _registered_tool_names() -> list[str]:
+    """Best-effort introspection. FastMCP keeps tools internally; the
+    exact attribute name has shifted between releases, so we try several."""
+    for attr in ("_tools", "tools", "_tool_registry"):
+        registry = getattr(mcp, attr, None)
+        if isinstance(registry, dict):
+            return list(registry.keys())
+        if isinstance(registry, list):
+            names = []
+            for t in registry:
+                n = getattr(t, "name", None) or getattr(t, "__name__", None)
+                if n:
+                    names.append(n)
+            return names
+    return []
+
+
 def main() -> None:
-    """Entry point declared in pyproject.toml."""
     try:
         mcp.run()
     except KeyboardInterrupt:
