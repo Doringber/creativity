@@ -167,7 +167,7 @@ class Aggregator:
         self._disruption_providers = (
             disruption_providers
             if disruption_providers is not None
-            else {"rss": _default_disruption_provider()}
+            else _default_disruption_providers()
         )
         self._runner = runner or TaskRunner()
 

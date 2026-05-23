@@ -139,7 +139,15 @@ class GoogleRoutesSource:
         if departure_time is not None:
             if departure_time.tzinfo is None:
                 departure_time = departure_time.replace(tzinfo=timezone.utc)
-            body["departureTime"] = departure_time.isoformat().replace("+00:00", "Z")
+            # Google requires departureTime to be in the future for DRIVING.
+            # When the caller passes datetime.now() for a "leave now" query,
+            # the value is almost-future-but-not-quite by the time the API
+            # call lands, and the call 400s. Omit the field unless the
+            # requested departure is comfortably in the future — that way
+            # Google falls back to "right now" on its side.
+            now = datetime.now(timezone.utc)
+            if (departure_time - now).total_seconds() > 60:
+                body["departureTime"] = departure_time.isoformat().replace("+00:00", "Z")
 
         if mode is TransportMode.DRIVING:
             body["travelMode"] = "DRIVE"
