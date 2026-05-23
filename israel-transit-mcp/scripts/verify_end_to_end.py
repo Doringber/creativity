@@ -1,0 +1,351 @@
+"""End-to-end verification.
+
+Runs the full pipeline (`morning_briefing` → `Aggregator` → injected
+fake sources → SQLite store → anomaly math → severity ladder) without
+touching the network. Exercises all four severity outcomes.
+
+Run from the repo root:
+    python -m israel_transit_mcp.scripts.verify_end_to_end
+
+The script exits 0 if every assertion holds, non-zero otherwise. Use
+this as the smoke gate before claiming "it works".
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import sys
+import tempfile
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, AsyncIterator
+
+
+def _bootstrap() -> None:
+    """Force a clean store directory + a fake API key BEFORE the package
+    is imported, so `Config.from_env()` (cached via lru_cache) picks them
+    up. Must run before any `from israel_transit_mcp...` import."""
+    tmp = Path(tempfile.mkdtemp(prefix="itm-verify-"))
+    os.environ["ISRAEL_TRANSIT_STORE_DIR"] = str(tmp)
+    os.environ["GOOGLE_MAPS_API_KEY"] = "FAKE-FOR-VERIFICATION-ONLY"
+    os.environ["ANOMALY_THRESHOLD_MINUTES"] = "5"
+    os.environ["BASELINE_MIN_SAMPLES"] = "5"
+
+
+_bootstrap()
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from israel_transit_mcp.aggregator import Aggregator
+from israel_transit_mcp.app import get_config, get_store
+from israel_transit_mcp.models import (
+    DisruptionEvent,
+    DisruptionKind,
+    ETAObservation,
+    LatLng,
+    Place,
+    Route,
+    RouteLeg,
+    SavedRoute,
+    TransportMode,
+)
+
+
+# --- fakes ----------------------------------------------------------------
+
+
+@dataclass
+class FakeRouting:
+    """Returns whatever Route list the test sets up — no HTTP."""
+    routes: list[Route]
+    name: str = "fake_routing"
+    supports_modes: tuple = (TransportMode.DRIVING,)
+
+    async def plan(
+        self,
+        origin: Place,
+        destination: Place,
+        mode: TransportMode,
+        departure_time: datetime | None = None,
+    ) -> list[Route]:
+        return list(self.routes)
+
+
+@dataclass
+class FakeDisruption:
+    """Returns the canned events. `recent` honors `window_hours`."""
+    events: list[DisruptionEvent]
+    name: str = "fake_rss"
+
+    async def recent(
+        self,
+        window_hours: int = 6,
+        min_confidence: float = 0.3,
+    ) -> list[DisruptionEvent]:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+        return [e for e in self.events if (e.published_at or cutoff) >= cutoff]
+
+
+def routing_provider_from(routing: FakeRouting):
+    @asynccontextmanager
+    async def cm() -> AsyncIterator[FakeRouting]:
+        yield routing
+    return lambda: cm()
+
+
+def disruption_providers_from(rss: FakeDisruption):
+    @asynccontextmanager
+    async def cm() -> AsyncIterator[FakeDisruption]:
+        yield rss
+    return {"rss": lambda: cm()}
+
+
+# --- canned data ----------------------------------------------------------
+
+
+def _ayalon_route(duration_s: int) -> Route:
+    """A route whose legs name איילון so location filtering can match."""
+    return Route(
+        mode=TransportMode.DRIVING,
+        origin=Place(display_name="תל אביב"),
+        destination=Place(display_name="הרצליה"),
+        legs=[
+            RouteLeg(
+                mode=TransportMode.DRIVING,
+                summary="עלייה לנתיבי איילון צפון",
+                distance_m=5000,
+                duration_s=duration_s // 3,
+            ),
+            RouteLeg(
+                mode=TransportMode.DRIVING,
+                summary="המשך באיילון צפון לכיוון הרצליה",
+                distance_m=12000,
+                duration_s=2 * duration_s // 3,
+            ),
+        ],
+        total_duration_s=duration_s,
+        total_distance_m=17000,
+        summary=f"דרך איילון — {duration_s // 60} דק׳",
+        source="fake_routing",
+    )
+
+
+def _ayalon_closure_event(when: datetime) -> DisruptionEvent:
+    return DisruptionEvent(
+        kind=DisruptionKind.CLOSURE,
+        title="חסימה בנתיבי איילון צפון בעקבות תאונה קשה",
+        description="תאונה רבת נפגעים, נתיב שמאלי נסגר",
+        source="rss:ynet_flash",
+        source_url="https://www.ynet.co.il/news/article/example",
+        published_at=when,
+        location_hint="נתיבי איילון",
+    )
+
+
+def _ramat_gan_unrelated_event(when: datetime) -> DisruptionEvent:
+    return DisruptionEvent(
+        kind=DisruptionKind.PROTEST,
+        title="הפגנה ברמת גן ליד בורסת היהלומים",
+        description="חוסמים את הצומת",
+        source="rss:mako_israel",
+        published_at=when,
+        location_hint="רמת גן",
+    )
+
+
+# --- scenarios ------------------------------------------------------------
+
+
+async def run_scenarios() -> int:
+    failures: list[str] = []
+
+    def check(label: str, cond: bool, detail: str = "") -> None:
+        marker = "OK " if cond else "FAIL"
+        print(f"  [{marker}] {label}" + (f"  — {detail}" if detail else ""))
+        if not cond:
+            failures.append(label)
+
+    cfg = get_config()
+    store = get_store()
+
+    # Reset store between runs (the lru_cache holds it across scenarios).
+    with store.tx() as c:
+        c.execute("DELETE FROM eta_observations")
+        c.execute("DELETE FROM saved_routes")
+
+    route_id = store.save_route(
+        SavedRoute(
+            name="home->work",
+            origin=Place(display_name="תל אביב"),
+            destination=Place(display_name="הרצליה פיתוח"),
+            mode=TransportMode.DRIVING,
+        )
+    )
+
+    # Seed baseline: 10 observations of ~22 minutes (1320 s) at weekday=2
+    # (Wednesday) hour=8. The test time below matches that bucket.
+    test_when = datetime(2026, 5, 27, 8, 0, tzinfo=timezone.utc)  # a Wed @ 08:00
+    assert test_when.weekday() == 2 and test_when.hour == 8
+    for i in range(10):
+        store.record_eta(
+            ETAObservation(
+                saved_route_id=route_id,
+                observed_at=test_when - timedelta(days=i + 1),
+                eta_s=1320 + (i % 3 - 1) * 60,  # 21-23 minute jitter
+                weekday=2,
+                hour=8,
+            )
+        )
+
+    # Import the tool only AFTER the store exists; the @mcp.tool
+    # wrapper is on the underlying function via `.fn` in FastMCP ≥ 0.4.
+    from israel_transit_mcp.tools.morning_briefing import morning_briefing as mb_tool
+
+    mb_fn = getattr(mb_tool, "fn", mb_tool)
+
+    async def briefing(
+        fake_route: Route,
+        fake_events: list[DisruptionEvent],
+    ) -> dict:
+        # Build a custom aggregator with injected fakes, and monkey-patch
+        # the tool's Aggregator construction. The cleanest way is to
+        # swap the module-level Aggregator reference for one shot.
+        import israel_transit_mcp.tools.morning_briefing as mb_mod
+
+        routing = FakeRouting(routes=[fake_route])
+        rss = FakeDisruption(events=fake_events)
+
+        class _InjAggregator(Aggregator):
+            def __init__(self, _cfg):
+                super().__init__(
+                    _cfg,
+                    routing_provider=routing_provider_from(routing),
+                    disruption_providers=disruption_providers_from(rss),
+                )
+
+        original = mb_mod.Aggregator
+        mb_mod.Aggregator = _InjAggregator
+        try:
+            return await mb_fn(
+                name="home->work",
+                at_iso=test_when.isoformat(),
+                window_hours=4,
+                record_observation=False,  # don't pollute the baseline mid-test
+            )
+        finally:
+            mb_mod.Aggregator = original
+
+    # ── Scenario 1: LOW. Normal ETA, no relevant disruption.
+    print("\nScenario 1 — LOW (normal ETA, no relevant disruption)")
+    result = await briefing(
+        fake_route=_ayalon_route(duration_s=1320),  # 22 min, on baseline
+        fake_events=[_ramat_gan_unrelated_event(test_when - timedelta(minutes=30))],
+    )
+    check("ok=true", result.get("ok") is True)
+    check("severity==low", result["briefing"]["severity"] == "low",
+          detail=f"actual={result['briefing']['severity']}")
+    check("anomaly.is_anomalous==false", result["briefing"]["anomaly"]["is_anomalous"] is False)
+    check("no disruptions matched the route", len(result["briefing"]["disruptions"]) == 0,
+          detail=f"matched={len(result['briefing']['disruptions'])}")
+    check("disruption trace shows ramat_gan event was fetched",
+          result["trace"]["disruption_events_total"] == 1)
+
+    # ── Scenario 2: MED (disruption only, ETA normal).
+    print("\nScenario 2 — MED (Ayalon closure reported, ETA still normal)")
+    result = await briefing(
+        fake_route=_ayalon_route(duration_s=1320),  # normal
+        fake_events=[_ayalon_closure_event(test_when - timedelta(minutes=10))],
+    )
+    check("severity==med", result["briefing"]["severity"] == "med",
+          detail=f"actual={result['briefing']['severity']}")
+    check("anomaly.is_anomalous==false", result["briefing"]["anomaly"]["is_anomalous"] is False)
+    check("1 disruption matched the route", len(result["briefing"]["disruptions"]) == 1)
+    check(
+        "matched disruption is the Ayalon closure",
+        result["briefing"]["disruptions"][0]["kind"] == "closure",
+    )
+
+    # ── Scenario 3: MED (anomaly only, no matching disruption).
+    print("\nScenario 3 — MED (slow ETA, no disruption explains it)")
+    result = await briefing(
+        fake_route=_ayalon_route(duration_s=2100),  # 35 min vs 22 baseline
+        fake_events=[_ramat_gan_unrelated_event(test_when - timedelta(minutes=30))],
+    )
+    check("severity==med", result["briefing"]["severity"] == "med",
+          detail=f"actual={result['briefing']['severity']}")
+    check("anomaly.is_anomalous==true", result["briefing"]["anomaly"]["is_anomalous"] is True)
+    check("no disruptions matched the route", len(result["briefing"]["disruptions"]) == 0)
+
+    # ── Scenario 4: HIGH (anomaly AND matching disruption).
+    print("\nScenario 4 — HIGH (slow ETA + Ayalon closure)")
+    result = await briefing(
+        fake_route=_ayalon_route(duration_s=2400),  # 40 min
+        fake_events=[_ayalon_closure_event(test_when - timedelta(minutes=15))],
+    )
+    check("severity==high", result["briefing"]["severity"] == "high",
+          detail=f"actual={result['briefing']['severity']}")
+    check("anomaly.is_anomalous==true", result["briefing"]["anomaly"]["is_anomalous"] is True)
+    check("1+ disruption matched", len(result["briefing"]["disruptions"]) >= 1)
+    suggested = result["briefing"]["suggested_action"]
+    check("suggested_action mentions earlier departure",
+          ("מוקדם" in suggested) or ("עזוב" in suggested) or ("צאת" in suggested),
+          detail=suggested[:80])
+
+    # ── Sample print of the HIGH briefing so you can read what Claude sees.
+    print("\n--- sample briefing JSON (HIGH scenario) ---")
+    print(json.dumps(result["briefing"], indent=2, ensure_ascii=False))
+    print("--- trace ---")
+    print(json.dumps(result["trace"], indent=2, ensure_ascii=False))
+
+    # ── Scenario 5: trace honesty when a source fails.
+    print("\nScenario 5 — disruption source raises; routing still works")
+    class _RaisingRss:
+        async def recent(self, **kw):
+            raise RuntimeError("simulated feed outage")
+    @asynccontextmanager
+    async def _bad_rss():
+        yield _RaisingRss()
+    import israel_transit_mcp.tools.morning_briefing as mb_mod
+
+    class _PartialAggregator(Aggregator):
+        def __init__(self, _cfg):
+            super().__init__(
+                _cfg,
+                routing_provider=routing_provider_from(FakeRouting(routes=[_ayalon_route(1320)])),
+                disruption_providers={"rss": lambda: _bad_rss()},
+            )
+
+    original = mb_mod.Aggregator
+    mb_mod.Aggregator = _PartialAggregator
+    try:
+        result = await mb_fn(
+            name="home->work",
+            at_iso=test_when.isoformat(),
+            window_hours=4,
+            record_observation=False,
+        )
+    finally:
+        mb_mod.Aggregator = original
+
+    check("ok=true even with failed feed", result.get("ok") is True)
+    check("trace.disruptions.failures names 'rss'", "rss" in result["trace"]["disruptions"]["failures"])
+    check("error message captured", "RuntimeError" in result["trace"]["disruptions"]["failures"].get("rss", ""))
+    print(f"  trace.disruptions.failures: {result['trace']['disruptions']['failures']}")
+
+    print()
+    if failures:
+        print(f"FAILED: {len(failures)} check(s):")
+        for f in failures:
+            print(f"  - {f}")
+        return 1
+    print("ALL CHECKS PASSED")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(run_scenarios()))

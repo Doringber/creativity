@@ -21,14 +21,27 @@ Cross-source heuristics applied here:
 from __future__ import annotations
 
 import re
-from collections import defaultdict
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Awaitable, Callable
+from typing import AsyncIterator, Awaitable, Callable, Protocol
 
 from .config import Config
-from .models import DisruptionEvent, Place, Route, TransportMode
+from .models import DisruptionEvent, Place, Route, RouteLeg, TransportMode
 from .runner import TaskResult, TaskRunner, successes
+
+
+class RoutingProvider(Protocol):
+    """Anything that yields a routing source under `async with`. Real
+    code yields a fresh `GoogleRoutesSource`; tests yield a fake. Either
+    way the aggregator uses the same `async with provider() as src` shape.
+    """
+
+    def __call__(self) -> AbstractAsyncContextManager: ...
+
+
+class DisruptionProvider(Protocol):
+    def __call__(self) -> AbstractAsyncContextManager: ...
 
 
 @dataclass
@@ -77,10 +90,60 @@ def _signatures_match(a: tuple[str, ...], b: tuple[str, ...]) -> bool:
     return overlap >= max(3, min(len(sa), len(sb)) // 2)
 
 
+def _default_routing_provider(cfg: Config) -> RoutingProvider:
+    """Build the production routing provider: a context manager that
+    yields a fresh, real `GoogleRoutesSource`. Imported lazily so unit
+    tests that monkey-patch don't pay the cost."""
+    def factory() -> AbstractAsyncContextManager:
+        from .sources.google_routes import GoogleRoutesSource
+
+        @asynccontextmanager
+        async def cm() -> AsyncIterator:
+            async with GoogleRoutesSource(cfg.google_maps_api_key or "") as src:
+                yield src
+
+        return cm()
+
+    return factory
+
+
+def _default_disruption_provider() -> DisruptionProvider:
+    def factory() -> AbstractAsyncContextManager:
+        from .sources.rss_news import RssNewsSource
+
+        @asynccontextmanager
+        async def cm() -> AsyncIterator:
+            async with RssNewsSource() as src:
+                yield src
+
+        return cm()
+
+    return factory
+
+
 class Aggregator:
-    def __init__(self, cfg: Config) -> None:
+    """Composes parallel fetches across sources.
+
+    Constructor injection: pass `routing_provider` / `disruption_providers`
+    to swap real sources for fakes. Default values pull from `.sources`
+    so production code is `Aggregator(cfg)` and nothing more.
+    """
+
+    def __init__(
+        self,
+        cfg: Config,
+        routing_provider: RoutingProvider | None = None,
+        disruption_providers: dict[str, DisruptionProvider] | None = None,
+        runner: TaskRunner | None = None,
+    ) -> None:
         self._cfg = cfg
-        self._runner = TaskRunner()
+        self._routing_provider = routing_provider or _default_routing_provider(cfg)
+        self._disruption_providers = (
+            disruption_providers
+            if disruption_providers is not None
+            else {"rss": _default_disruption_provider()}
+        )
+        self._runner = runner or TaskRunner()
 
     # --- routing -------------------------------------------------------
 
@@ -90,15 +153,13 @@ class Aggregator:
         destination: Place,
         departure_time: datetime | None = None,
     ) -> RoutePlan:
-        if not self._cfg.driving_available:
-            return RoutePlan(
-                routes=[],
-                trace=FetchTrace(failures={"google_routes": "GOOGLE_MAPS_API_KEY not configured"}),
-            )
-        from .sources.google_routes import GoogleRoutesSource
+        """Run the routing provider under the bounded runner. Provider
+        errors (missing API key, HTTP failure) surface as
+        `trace.failures[...]` rather than exceptions, so the caller can
+        keep going with whatever else succeeded."""
 
         async def _call() -> list[Route]:
-            async with GoogleRoutesSource(self._cfg.google_maps_api_key or "") as src:
+            async with self._routing_provider() as src:
                 return await src.plan(origin, destination, TransportMode.DRIVING, departure_time)
 
         results = await self._runner.run({"google_routes": _call})
@@ -113,17 +174,13 @@ class Aggregator:
         window_hours: int = 6,
         location_filter: str | None = None,
     ) -> DisruptionSnapshot:
-        from .sources.rss_news import RssNewsSource
+        def _factory(provider: DisruptionProvider) -> Callable[[], Awaitable[list[DisruptionEvent]]]:
+            async def _call() -> list[DisruptionEvent]:
+                async with provider() as src:
+                    return await src.recent(window_hours=window_hours)
+            return _call
 
-        async def _rss() -> list[DisruptionEvent]:
-            async with RssNewsSource() as src:
-                return await src.recent(window_hours=window_hours)
-
-        tasks: dict[str, Callable[[], Awaitable[list[DisruptionEvent]]]] = {
-            "rss": _rss,
-        }
-        # IMS weather + transit-side service alerts plug in here in
-        # following commits — same shape, same runner.
+        tasks = {name: _factory(p) for name, p in self._disruption_providers.items()}
         results = await self._runner.run(tasks)
         trace = _trace_from(results)
 
@@ -132,19 +189,59 @@ class Aggregator:
             all_events.extend(events)
 
         if location_filter:
-            all_events = [
-                e for e in all_events
-                if _matches_location(e, location_filter)
-            ]
+            all_events = [e for e in all_events if _matches_location(e, location_filter)]
 
         merged = _dedupe_and_boost(all_events)
         merged.sort(
-            key=lambda e: (
-                e.published_at or datetime.fromtimestamp(0, tz=timezone.utc),
-            ),
+            key=lambda e: e.published_at or datetime.fromtimestamp(0, tz=timezone.utc),
             reverse=True,
         )
         return DisruptionSnapshot(events=merged, trace=trace)
+
+    # --- route-localized disruptions ----------------------------------
+
+    def disruptions_for_route(
+        self,
+        snap: DisruptionSnapshot,
+        route: Route,
+    ) -> list[DisruptionEvent]:
+        """Filter a snapshot down to events plausibly affecting `route`.
+
+        Best-effort substring match between the event's location_hint /
+        title / description and the tokens we can pull from the route's
+        leg summaries. Cheap and good enough until we wire real geocoding.
+        """
+        tokens = _route_tokens(route)
+        if not tokens:
+            return list(snap.events)
+        out: list[DisruptionEvent] = []
+        for ev in snap.events:
+            hay = " ".join(
+                t for t in (ev.location_hint, ev.title, ev.description) if t
+            )
+            hay_norm = _normalize_title(hay)
+            if any(tok in hay_norm for tok in tokens):
+                out.append(ev)
+        return out
+
+
+def _route_tokens(route: Route) -> set[str]:
+    """Extract probable place/road tokens from a route's leg summaries.
+
+    Filters tokens shorter than 3 chars and Latin-only words that are
+    rarely useful for Hebrew matching (e.g. cardinal direction labels
+    that Google sometimes emits). Keeps Hebrew tokens of length ≥ 2.
+    """
+    tokens: set[str] = set()
+    for leg in route.legs:
+        norm = _normalize_title(leg.summary)
+        for tok in norm.split():
+            if any("֐" <= ch <= "׿" for ch in tok):
+                if len(tok) >= 2:
+                    tokens.add(tok)
+            elif len(tok) >= 4:
+                tokens.add(tok)
+    return tokens
 
 
 def _trace_from(results: dict[str, TaskResult]) -> FetchTrace:
