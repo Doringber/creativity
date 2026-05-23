@@ -16,5 +16,6 @@ build/
 proposed/
 verdicts/
 .qa-agent/
+.israel-transit-mcp/
 .idea/
 .vscode/
