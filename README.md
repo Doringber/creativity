@@ -3,6 +3,24 @@
 An MCP server that gives Claude *live*, Israel-specific routing intelligence:
 when to leave, which way to go, what's wrong on your usual commute *today*.
 
+> **License:** MIT. The code contains no secrets — every API key
+> (Google Maps, optional Telegram, optional SMTP) is a runtime env var
+> the user provides at install time. Deploy freely.
+
+## Deploy — four free paths
+
+| Path | Who installs | Where keys live | Best for |
+| --- | --- | --- | --- |
+| **GitHub + local pip** | the user | `~/.env` on the user's machine | tinkerers; full SQLite baseline survives |
+| **Docker Hub image** | the user | `docker run -e GOOGLE_MAPS_API_KEY=...` | container fans; same baseline persistence via `-v` volume |
+| **Smithery (stdio)** | one-click via smithery.ai UI | Smithery's encrypted form, injected as env into the user's local launcher | non-technical users; baseline survives because runtime is local |
+| **Smithery (hosted)** | one-click | Smithery's vault, injected at request time | zero-setup users who don't need the personal baseline (the SQLite store is ephemeral unless wired to external Postgres) |
+
+The image is single-stage, ~140 MB. The Dockerfile and `smithery.yaml`
+at the repo root drive both Docker Hub publishing and Smithery's
+auto-detect. CI runs `verify_end_to_end.py` on every push.
+
+
 ## The job
 
 You ask Claude "should I leave for work now?" and Claude — via this MCP —
