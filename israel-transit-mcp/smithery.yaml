@@ -1,0 +1,87 @@
+# Smithery registry metadata for israel-transit-mcp.
+#
+# Once this repo is public, registering on https://smithery.ai picks up
+# this file automatically. Smithery generates a one-click install button
+# that drops a config block into the user's Claude Desktop settings, with
+# a UI form that collects each `configSchema` property securely (the user
+# pastes their own Google API key — it never sits in this repo).
+#
+# Two runtime modes are described:
+#   - stdio (default): Smithery generates a local launcher that runs
+#     `israel-transit-mcp` on the user's machine. SQLite baseline
+#     persists across sessions in ~/.israel-transit-mcp/.
+#   - container (optional): Smithery hosts the MCP in their cluster
+#     using the Dockerfile. Faster setup; SQLite is ephemeral unless
+#     the user wires an external Postgres.
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - googleMapsApiKey
+    properties:
+      googleMapsApiKey:
+        type: string
+        title: Google Maps API Key
+        description: >
+          Generated at console.cloud.google.com → APIs & Services →
+          Credentials → Create API Key. Enable the Routes API on the
+          project and (strongly recommended) cap the daily quota.
+        format: password
+      anomalyThresholdMinutes:
+        type: integer
+        title: Anomaly threshold (minutes)
+        description: >
+          How many minutes over the personal p75 baseline counts as a
+          "slow day". Conservative default is 5.
+        default: 5
+        minimum: 1
+        maximum: 60
+      baselineMinSamples:
+        type: integer
+        title: Baseline minimum samples
+        description: >
+          Hold back the anomaly verdict until at least this many ETA
+          observations exist for the (route, weekday, hour) bucket.
+          Below this, the briefing reports "still learning your usual".
+        default: 5
+        minimum: 1
+        maximum: 50
+
+  # Smithery uses this to map the form values into env vars when
+  # generating the user's Claude config. The function runs inside
+  # Smithery's sandbox and never leaves the user's session.
+  commandFunction: |-
+    (config) => ({
+      command: 'israel-transit-mcp',
+      env: {
+        GOOGLE_MAPS_API_KEY: config.googleMapsApiKey,
+        ANOMALY_THRESHOLD_MINUTES: String(config.anomalyThresholdMinutes ?? 5),
+        BASELINE_MIN_SAMPLES: String(config.baselineMinSamples ?? 5),
+      }
+    })
+
+# Optional container runtime — Smithery picks this up if the user
+# chooses "hosted" instead of "local install".
+build:
+  dockerfile: Dockerfile
+
+metadata:
+  name: israel-transit
+  displayName: Israel Transit MCP
+  description: >
+    Live Israeli routing intelligence — driving + transit ETA with
+    traffic via Google Routes, road-disruption events from Israeli
+    news RSS, and a personal commute baseline that learns your usual
+    Wednesday 08:00. Composed answer: "should I drive or take the bus
+    today?" in one Hebrew sentence.
+  homepage: https://github.com/doringber/creativity
+  license: MIT
+  tags:
+    - israel
+    - transit
+    - routing
+    - google-maps
+    - commute
+    - hebrew
