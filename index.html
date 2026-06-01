@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1026" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AR Catch — תפוס אותם!</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- שכבת המצלמה -->
+  <video id="camera" playsinline autoplay muted></video>
+  <div id="camera-fallback" class="camera-fallback"></div>
+
+  <!-- שדה המשחק שבו קופצות הדמויות -->
+  <div id="playfield" aria-hidden="true"></div>
+
+  <!-- שכבת אפקטים (חלקיקים, פופים) -->
+  <div id="fx"></div>
+
+  <!-- ה-HUD העליון -->
+  <header id="hud" class="hud hidden">
+    <div class="hud-pill score-pill">
+      <span class="hud-emoji">🏆</span>
+      <span id="score">0</span>
+    </div>
+    <div class="hud-pill combo-pill" id="combo-pill">
+      <span class="hud-emoji">🔥</span>
+      <span id="combo">x1</span>
+    </div>
+    <div class="hud-pill timer-pill">
+      <span class="hud-emoji">⏱️</span>
+      <span id="timer">60</span>
+    </div>
+  </header>
+
+  <!-- בר התקדמות שלב -->
+  <div id="level-bar" class="level-bar hidden">
+    <div id="level-fill" class="level-fill"></div>
+    <span id="level-label" class="level-label">שלב 1</span>
+  </div>
+
+  <!-- מסך פתיחה -->
+  <section id="start-screen" class="overlay">
+    <div class="panel">
+      <h1 class="title">AR <span class="title-accent">CATCH</span></h1>
+      <p class="subtitle">הפעל את המצלמה — דמויות ומטבעות יקפצו מסביבך.<br/>תפוס כמה שיותר לפני שהזמן נגמר! 🎯</p>
+
+      <div class="legend">
+        <div class="legend-item"><span class="chip chip-creature">👾</span> יצור · 10 נק׳</div>
+        <div class="legend-item"><span class="chip chip-coin">🪙</span> מטבע · 5 נק׳</div>
+        <div class="legend-item"><span class="chip chip-rare">⭐</span> נדיר · 50 נק׳</div>
+        <div class="legend-item"><span class="chip chip-bomb">💣</span> פצצה · היזהר!</div>
+      </div>
+
+      <button id="start-btn" class="btn btn-primary">▶ התחל לשחק</button>
+      <button id="board-btn" class="btn btn-ghost">🏅 לוח תוצאות</button>
+      <p id="cam-note" class="cam-note">צריך הרשאת מצלמה. אם אין מצלמה — המשחק עדיין עובד על רקע צבעוני.</p>
+    </div>
+  </section>
+
+  <!-- מסך סיום -->
+  <section id="end-screen" class="overlay hidden">
+    <div class="panel">
+      <h2 class="end-title">⏰ הזמן נגמר!</h2>
+      <div class="final-score">
+        <div class="final-score-num" id="final-score">0</div>
+        <div class="final-score-label">נקודות</div>
+      </div>
+      <div class="end-stats">
+        <div class="stat"><span id="stat-caught">0</span><small>נתפסו</small></div>
+        <div class="stat"><span id="stat-best-combo">x1</span><small>קומבו שיא</small></div>
+        <div class="stat"><span id="stat-level">1</span><small>שלב</small></div>
+      </div>
+      <div id="new-record" class="new-record hidden">🎉 שיא חדש! 🎉</div>
+
+      <div class="name-row" id="name-row">
+        <input id="player-name" class="name-input" maxlength="12" placeholder="השם שלך ללוח התוצאות" />
+        <button id="save-score-btn" class="btn btn-primary btn-small">שמור</button>
+      </div>
+
+      <button id="again-btn" class="btn btn-primary">🔁 עוד פעם</button>
+      <button id="board-btn-2" class="btn btn-ghost">🏅 לוח תוצאות</button>
+    </div>
+  </section>
+
+  <!-- לוח תוצאות -->
+  <section id="board-screen" class="overlay hidden">
+    <div class="panel">
+      <h2 class="board-title">🏅 לוח התוצאות</h2>
+      <ol id="board-list" class="board-list"></ol>
+      <p id="board-empty" class="board-empty hidden">עדיין אין תוצאות — תהיה הראשון! 🚀</p>
+      <button id="board-close-btn" class="btn btn-primary">חזרה</button>
+      <button id="board-clear-btn" class="btn btn-ghost btn-small">איפוס לוח</button>
+    </div>
+  </section>
+
+  <!-- כפתור עצירה תוך כדי משחק -->
+  <button id="pause-btn" class="pause-btn hidden">⏸</button>
+
+  <script src="js/game.js"></script>
+</body>
+</html>
