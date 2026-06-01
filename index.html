@@ -10,94 +10,122 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Heebo:wght@400;600;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- שכבת המצלמה -->
   <video id="camera" playsinline autoplay muted></video>
   <div id="camera-fallback" class="camera-fallback"></div>
+  <div class="vignette"></div>
 
-  <!-- שכבת תפיסת הקשות-החטאה (להברחת דמויות) -->
-  <div id="taplayer"></div>
+  <!-- the AR stage (shakes on impact); camera stays still -->
+  <div id="stage">
+    <div id="playfield"></div>
+    <div id="balllayer"></div>
+    <div id="radar"></div>
+    <div id="fx"></div>
+  </div>
 
-  <!-- שדה המשחק שבו קופצות הדמויות -->
-  <div id="playfield" aria-hidden="true"></div>
-
-  <!-- שכבת אפקטים (חלקיקים, פופים) -->
-  <div id="fx"></div>
-
-  <!-- ה-HUD העליון -->
+  <!-- HUD -->
   <header id="hud" class="hud hidden">
-    <div class="hud-pill score-pill">
-      <span class="hud-emoji">🏆</span>
-      <span id="score">0</span>
-    </div>
-    <div class="hud-pill combo-pill" id="combo-pill">
-      <span class="hud-emoji">🔥</span>
-      <span id="combo">x1</span>
-    </div>
-    <div class="hud-pill timer-pill">
-      <span class="hud-emoji">⏱️</span>
-      <span id="timer">60</span>
-    </div>
+    <div class="hud-pill score-pill"><span class="hud-emoji">🏆</span><span id="score">0</span></div>
+    <div class="hud-pill combo-pill" id="combo-pill"><span class="hud-emoji">🔥</span><span id="combo">x1</span></div>
+    <div class="hud-pill timer-pill"><span class="hud-emoji">⏱️</span><span id="timer">60</span></div>
+    <div class="hud-pill coins-pill"><span class="hud-emoji">🪙</span><span id="coins-run">0</span></div>
   </header>
 
-  <!-- בר התקדמות שלב -->
+  <div id="look-hint" class="look-hint hidden">🧭 הזז את הטלפון כדי לחפש · החלק כדי לזרוק כדור</div>
+
   <div id="level-bar" class="level-bar hidden">
     <div id="level-fill" class="level-fill"></div>
     <span id="level-label" class="level-label">שלב 1</span>
   </div>
 
-  <!-- מסך פתיחה -->
+  <button id="pause-btn" class="round-btn hidden" style="right:12px">⏸</button>
+
+  <!-- ===== Start ===== -->
   <section id="start-screen" class="overlay">
     <div class="panel">
-      <h1 class="title">Pango <span class="title-accent">GO</span></h1>
-      <p class="subtitle">הפעל את המצלמה — דמויות Pango יקפצו מסביבך.<br/>הן <b>בורחות, מתחבאות ומתחפשות</b> — תפוס כמה שיותר לפני שהזמן נגמר! 🧭</p>
-
-      <div class="legend">
-        <div class="legend-item"><img class="chip-img" src="assets/pango.svg" alt=""> פנגו · 10 נק׳</div>
-        <div class="legend-item"><img class="chip-img" src="assets/coin.svg" alt=""> מטבע · 5 נק׳</div>
-        <div class="legend-item"><img class="chip-img gold" src="assets/pango.svg" alt=""> פנגו זהב · 50 נק׳</div>
-        <div class="legend-item"><img class="chip-img" src="assets/fine.svg" alt=""> קנס · היזהר!</div>
+      <div class="brandrow">
+        <h1 class="title">Pango <span class="title-accent">GO</span></h1>
       </div>
 
-      <p class="tip">💡 טיפ: הקשה <b>ליד</b> דמות מבריחה אותה — כוון ישר עליה!</p>
+      <div class="profile-row">
+        <div class="prof-chip"><b id="player-level">1</b><small>שלב שחקן</small></div>
+        <div class="prof-chip"><b id="player-coins">0</b><small>🪙 מטבעות</small></div>
+        <div class="prof-chip"><b id="dex-count">0/6</b><small>📒 דקס</small></div>
+      </div>
+      <div class="xp-wrap"><div id="xp-fill" class="xp-fill"></div><span id="xp-label" class="xp-label"></span></div>
+
+      <div class="mission-card" id="mission-card">
+        <span class="mission-ico">🎯</span>
+        <div class="mission-body">
+          <div class="mission-text" id="mission-text">משימה יומית</div>
+          <div class="mission-prog"><div id="mission-fill" class="mission-fill"></div></div>
+        </div>
+        <span class="mission-reward" id="mission-reward">+60🪙</span>
+      </div>
 
       <button id="start-btn" class="btn btn-primary">▶ התחל לשחק</button>
-      <button id="board-btn" class="btn btn-ghost">🏅 לוח תוצאות</button>
-      <p id="cam-note" class="cam-note">צריך הרשאת מצלמה. אם אין מצלמה — המשחק עדיין עובד על רקע צבעוני.</p>
+      <div class="btn-row">
+        <button id="dex-btn" class="btn btn-ghost">📒 פנגודקס</button>
+        <button id="board-btn" class="btn btn-ghost">🏅 תוצאות</button>
+      </div>
+      <div class="btn-row">
+        <button id="howto-btn" class="btn btn-ghost btn-small">❔ איך משחקים</button>
+        <button id="sound-btn" class="btn btn-ghost btn-small">🔊 סאונד</button>
+      </div>
+      <p id="cam-note" class="cam-note">דרושות הרשאות מצלמה וחיישני תנועה. בלעדיהם המשחק עדיין עובד — מחליקים על המסך כדי להסתכל מסביב.</p>
     </div>
   </section>
 
-  <!-- מסך סיום -->
+  <!-- ===== How to play ===== -->
+  <section id="howto-screen" class="overlay hidden">
+    <div class="panel">
+      <h2 class="panel-title">איך משחקים 🧭</h2>
+      <ul class="howto">
+        <li><b>🔭 חפש:</b> הזז את הטלפון מסביבך — דמויות Pango מסתתרות בכל הכיוונים.</li>
+        <li><b>🎯 כוון:</b> חיצים בקצוות המסך מצביעים לדמויות שמחוץ לשדה הראייה.</li>
+        <li><b>🟦 זרוק:</b> החלק לכיוון הדמות כדי לזרוק כדור Pango ולתפוס אותה.</li>
+        <li><b>🏃 הן חכמות:</b> בורחות, מתחבאות ומתחפשות — תפוס לפני שהן נעלמות!</li>
+        <li><b>📒 אסוף:</b> כל מין נכנס לפנגודקס. תפוס את כולם!</li>
+      </ul>
+      <button id="howto-close" class="btn btn-primary">הבנתי, קדימה!</button>
+    </div>
+  </section>
+
+  <!-- ===== End ===== -->
   <section id="end-screen" class="overlay hidden">
     <div class="panel">
-      <h2 class="end-title">⏰ הזמן נגמר!</h2>
-      <div class="final-score">
-        <div class="final-score-num" id="final-score">0</div>
-        <div class="final-score-label">נקודות</div>
-      </div>
+      <h2 class="panel-title">⏰ הזמן נגמר!</h2>
+      <div class="final-score"><div class="final-score-num" id="final-score">0</div><div class="final-score-label">נקודות</div></div>
       <div class="end-stats">
         <div class="stat"><span id="stat-caught">0</span><small>נתפסו</small></div>
         <div class="stat"><span id="stat-best-combo">x1</span><small>קומבו שיא</small></div>
-        <div class="stat"><span id="stat-level">1</span><small>שלב</small></div>
+        <div class="stat"><span id="stat-coins">0</span><small>🪙 הרווחת</small></div>
+        <div class="stat"><span id="stat-new">0</span><small>מינים חדשים</small></div>
       </div>
       <div id="new-record" class="new-record hidden">🎉 שיא חדש! 🎉</div>
+      <div id="mission-done" class="mission-done hidden">✅ משימה יומית הושלמה!</div>
 
       <div class="name-row" id="name-row">
         <input id="player-name" class="name-input" maxlength="12" placeholder="השם שלך ללוח התוצאות" />
         <button id="save-score-btn" class="btn btn-primary btn-small">שמור</button>
       </div>
-
       <button id="again-btn" class="btn btn-primary">🔁 עוד פעם</button>
-      <button id="board-btn-2" class="btn btn-ghost">🏅 לוח תוצאות</button>
+      <div class="btn-row">
+        <button id="dex-btn-2" class="btn btn-ghost">📒 פנגודקס</button>
+        <button id="board-btn-2" class="btn btn-ghost">🏅 תוצאות</button>
+      </div>
     </div>
   </section>
 
-  <!-- לוח תוצאות -->
+  <!-- ===== Leaderboard ===== -->
   <section id="board-screen" class="overlay hidden">
     <div class="panel">
-      <h2 class="board-title">🏅 לוח התוצאות</h2>
+      <h2 class="panel-title">🏅 לוח התוצאות</h2>
       <ol id="board-list" class="board-list"></ol>
       <p id="board-empty" class="board-empty hidden">עדיין אין תוצאות — תהיה הראשון! 🚀</p>
       <button id="board-close-btn" class="btn btn-primary">חזרה</button>
@@ -105,9 +133,19 @@
     </div>
   </section>
 
-  <!-- כפתור עצירה תוך כדי משחק -->
-  <button id="pause-btn" class="pause-btn hidden">⏸</button>
+  <!-- ===== Pangodex ===== -->
+  <section id="dex-screen" class="overlay hidden">
+    <div class="panel">
+      <h2 class="panel-title">📒 פנגודקס</h2>
+      <div id="dex-grid" class="dex-grid"></div>
+      <button id="dex-close-btn" class="btn btn-primary">חזרה</button>
+    </div>
+  </section>
 
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/audio.js"></script>
+  <script src="js/data.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>
