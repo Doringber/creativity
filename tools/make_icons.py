@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Generate AR Catch PWA icons with no external dependencies.
+"""Generate Pango GO PWA icons with no external dependencies.
 
-Draws a simple, bold app icon (gradient background + a target/pokeball-ish
-motif + a coin) into RGBA pixel buffers and writes them as PNG files using
-only the Python standard library (zlib + struct).
+Draws a Pango-blue rounded icon with a white location pin and a gold center
+into RGBA buffers and writes them as PNGs using only the standard library.
 """
 import os
 import math
@@ -12,9 +11,14 @@ import struct
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "icons")
 
+# Pango brand palette
+BLUE_TOP = (61, 123, 255)
+BLUE_BOT = (24, 70, 200)
+GOLD = (255, 200, 45)
+WHITE = (255, 255, 255)
+
 
 def write_png(path, width, height, pixels):
-    """pixels: bytearray of RGBA, length width*height*4."""
     def chunk(tag, data):
         c = struct.pack(">I", len(data)) + tag + data
         c += struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
@@ -23,7 +27,7 @@ def write_png(path, width, height, pixels):
     raw = bytearray()
     stride = width * 4
     for y in range(height):
-        raw.append(0)  # filter type 0
+        raw.append(0)
         raw.extend(pixels[y * stride:(y + 1) * stride])
 
     png = b"\x89PNG\r\n\x1a\n"
@@ -35,65 +39,74 @@ def write_png(path, width, height, pixels):
 
 
 def lerp(a, b, t):
-    return a + (b - a) * t
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def in_pin(x, y, cx, headY, r, tipY):
+    """Location-pin test: head circle + tapering triangle down to the tip."""
+    # head circle
+    if (x - cx) ** 2 + (y - headY) ** 2 <= r * r:
+        return True
+    # triangle from circle width down to tip
+    if headY <= y <= tipY:
+        t = (y - headY) / (tipY - headY)
+        halfw = r * (1 - t)
+        if abs(x - cx) <= halfw:
+            return True
+    return False
 
 
 def make(size, maskable=False):
     px = bytearray(size * size * 4)
-    cx = cy = size / 2
-    # for maskable icons keep the art within the safe ~80% zone
-    pad = size * 0.08 if maskable else size * 0.02
-    R = (size / 2) - pad
+    pad = size * 0.10 if maskable else size * 0.015
+    R = size / 2 - pad
+    cx = size / 2
+    cy = size / 2
+    corner = size * 0.22  # rounded-square radius for non-maskable
+
+    # pin geometry
+    pin_cx = cx
+    pin_headY = size * 0.40
+    pin_r = size * 0.17
+    pin_tipY = size * 0.74
+    gold_r = size * 0.085
 
     for y in range(size):
         for x in range(size):
             i = (y * size + x) * 4
-            # diagonal gradient background (deep navy -> magenta -> cyan)
-            t = (x + y) / (2 * size)
-            r = int(lerp(20, 255, t * 0.9))
-            g = int(lerp(16, 61, t))
-            b = int(lerp(64, 166, 1 - t) * (1 - t) + lerp(64, 224, t) * t)
+            inside = True
             a = 255
 
-            dx = x - cx
-            dy = y - cy
-            dist = math.hypot(dx, dy)
+            if not maskable:
+                # rounded-square mask
+                dx = max(abs(x - cx) - (size / 2 - corner - pad), 0)
+                dy = max(abs(y - cy) - (size / 2 - corner - pad), 0)
+                if (x < pad or x > size - pad or y < pad or y > size - pad):
+                    inside = False
+                elif dx * dx + dy * dy > corner * corner:
+                    inside = False
 
-            # outer rounded disc
-            if dist <= R:
-                # base disc fill (slightly darker navy so motif pops)
-                r, g, b = 18, 22, 54
+            if not inside:
+                px[i + 3] = 0
+                continue
 
-                # outer ring (cyan -> magenta)
-                if R * 0.86 <= dist <= R:
-                    ang = (math.atan2(dy, dx) + math.pi) / (2 * math.pi)
-                    r = int(lerp(54, 255, ang))
-                    g = int(lerp(224, 61, ang))
-                    b = int(lerp(255, 166, ang))
+            # background gradient
+            r, g, b = lerp(BLUE_TOP, BLUE_BOT, y / size)
 
-                # central target rings
-                ringw = size * 0.045
-                for rr, col in [
-                    (R * 0.62, (255, 61, 166)),
-                    (R * 0.42, (54, 224, 255)),
-                ]:
-                    if abs(dist - rr) <= ringw:
-                        r, g, b = col
+            # soft radial glow behind the pin
+            gd = math.hypot(x - pin_cx, y - pin_headY)
+            if gd < size * 0.30:
+                t = 1 - gd / (size * 0.30)
+                r = min(255, int(r + 40 * t))
+                g = min(255, int(g + 40 * t))
+                b = min(255, int(b + 30 * t))
 
-                # bullseye (gold coin) with a $-ish shine
-                if dist <= R * 0.22:
-                    r, g, b = 255, 210, 63
-                    # little highlight
-                    if (dx + R * 0.07) ** 2 + (dy + R * 0.07) ** 2 <= (R * 0.07) ** 2:
-                        r, g, b = 255, 245, 200
-
-                a = 255
-            else:
-                # transparent corners (non-maskable) / keep gradient (maskable)
-                if maskable:
-                    a = 255
-                else:
-                    a = 0
+            # white pin
+            if in_pin(x, y, pin_cx, pin_headY, pin_r, pin_tipY):
+                r, g, b = WHITE
+                # gold center dot
+                if (x - pin_cx) ** 2 + (y - pin_headY) ** 2 <= gold_r * gold_r:
+                    r, g, b = GOLD
 
             px[i] = r
             px[i + 1] = g

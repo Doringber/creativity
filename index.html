@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b1026" />
+  <meta name="theme-color" content="#1746b4" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>AR Catch — תפוס אותם!</title>
+  <title>Pango GO — תפוס אותם!</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
@@ -16,6 +16,9 @@
   <!-- שכבת המצלמה -->
   <video id="camera" playsinline autoplay muted></video>
   <div id="camera-fallback" class="camera-fallback"></div>
+
+  <!-- שכבת תפיסת הקשות-החטאה (להברחת דמויות) -->
+  <div id="taplayer"></div>
 
   <!-- שדה המשחק שבו קופצות הדמויות -->
   <div id="playfield" aria-hidden="true"></div>
@@ -48,15 +51,17 @@
   <!-- מסך פתיחה -->
   <section id="start-screen" class="overlay">
     <div class="panel">
-      <h1 class="title">AR <span class="title-accent">CATCH</span></h1>
-      <p class="subtitle">הפעל את המצלמה — דמויות ומטבעות יקפצו מסביבך.<br/>תפוס כמה שיותר לפני שהזמן נגמר! 🎯</p>
+      <h1 class="title">Pango <span class="title-accent">GO</span></h1>
+      <p class="subtitle">הפעל את המצלמה — דמויות Pango יקפצו מסביבך.<br/>הן <b>בורחות, מתחבאות ומתחפשות</b> — תפוס כמה שיותר לפני שהזמן נגמר! 🧭</p>
 
       <div class="legend">
-        <div class="legend-item"><span class="chip chip-creature">👾</span> יצור · 10 נק׳</div>
-        <div class="legend-item"><span class="chip chip-coin">🪙</span> מטבע · 5 נק׳</div>
-        <div class="legend-item"><span class="chip chip-rare">⭐</span> נדיר · 50 נק׳</div>
-        <div class="legend-item"><span class="chip chip-bomb">💣</span> פצצה · היזהר!</div>
+        <div class="legend-item"><img class="chip-img" src="assets/pango.svg" alt=""> פנגו · 10 נק׳</div>
+        <div class="legend-item"><img class="chip-img" src="assets/coin.svg" alt=""> מטבע · 5 נק׳</div>
+        <div class="legend-item"><img class="chip-img gold" src="assets/pango.svg" alt=""> פנגו זהב · 50 נק׳</div>
+        <div class="legend-item"><img class="chip-img" src="assets/fine.svg" alt=""> קנס · היזהר!</div>
       </div>
+
+      <p class="tip">💡 טיפ: הקשה <b>ליד</b> דמות מבריחה אותה — כוון ישר עליה!</p>
 
       <button id="start-btn" class="btn btn-primary">▶ התחל לשחק</button>
       <button id="board-btn" class="btn btn-ghost">🏅 לוח תוצאות</button>
