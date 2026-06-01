@@ -1,0 +1,17 @@
+# Netlify deploy config for Pango GO (static site served from repo root)
+[build]
+  publish = "."
+  command = ""
+
+# Camera + motion sensors must be explicitly allowed (and require HTTPS,
+# which Netlify provides automatically).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Permissions-Policy = "camera=(self), gyroscope=(self), accelerometer=(self), magnetometer=(self)"
+
+# Never cache the service worker so updates roll out immediately.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
