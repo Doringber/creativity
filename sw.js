@@ -1,11 +1,14 @@
-/* AR Catch service worker — offline caching */
-const CACHE = "arcatch-v1";
+/* Pango GO service worker — offline caching */
+const CACHE = "pangogo-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./css/style.css",
   "./js/game.js",
   "./manifest.webmanifest",
+  "./assets/pango.svg",
+  "./assets/coin.svg",
+  "./assets/fine.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",

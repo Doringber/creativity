@@ -1,11 +1,11 @@
 :root {
-  --bg: #0b1026;
-  --accent: #ff3da6;
-  --accent2: #36e0ff;
-  --gold: #ffd23f;
+  --bg: #0a1430;
+  --accent: #3d7bff;       /* Pango blue */
+  --accent2: #5fa8ff;
+  --gold: #ffc82d;
   --good: #4ade80;
-  --bad: #ff5470;
-  --panel: rgba(16, 20, 48, 0.82);
+  --bad: #ff4d5e;
+  --panel: rgba(12, 24, 64, 0.82);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -49,41 +49,63 @@ body.no-cam .camera-fallback { display: block; }
   to   { filter: hue-rotate(40deg); }
 }
 
+/* ---------- tap layer (catches missed taps to scare creatures) ---------- */
+#taplayer {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: transparent;
+}
+body.playing #taplayer { pointer-events: auto; }
+
 /* ---------- playfield & fx ---------- */
 #playfield, #fx {
   position: fixed;
   inset: 0;
-  z-index: 5;
   pointer-events: none;
 }
-#playfield { pointer-events: none; }
+#playfield { z-index: 5; }
+#fx { z-index: 8; }
 
 /* targets you tap */
 .target {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 84px;
   height: 84px;
-  margin: -42px 0 0 -42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 52px;
   pointer-events: auto;
   cursor: pointer;
-  will-change: transform;
+  will-change: transform, opacity;
   filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45));
-  transition: transform 0.08s ease;
 }
-.target:active { transform: scale(0.86); }
 .target .sprite {
   display: block;
+  width: 100%;
+  height: 100%;
   animation: hop 0.6s ease-in-out infinite;
 }
+.target .sprite img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+.target:active .sprite { transform: scale(0.86); }
 .target.coin .sprite { animation: spin 1.1s linear infinite, hop 0.7s ease-in-out infinite; }
 .target.rare {
-  filter: drop-shadow(0 0 14px var(--gold)) drop-shadow(0 6px 10px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 0 16px var(--gold)) drop-shadow(0 6px 10px rgba(0,0,0,0.5));
 }
-.target.rare .sprite { animation: hop 0.45s ease-in-out infinite, glow 0.9s ease-in-out infinite; }
+.target.rare .sprite img,
+.chip-img.gold {
+  /* tint the blue Pango into a golden rare variant */
+  filter: brightness(1.12) sepia(1) saturate(7) hue-rotate(2deg);
+}
+.target.rare .sprite { animation: hop 0.42s ease-in-out infinite; }
 .target.bomb .sprite { animation: shake 0.5s ease-in-out infinite; }
 
 /* a ring to make them pop */
@@ -274,6 +296,17 @@ body.no-cam .camera-fallback { display: block; }
   font-weight: 600;
 }
 .chip { font-size: 22px; }
+.chip-img { width: 26px; height: 30px; object-fit: contain; vertical-align: middle; }
+.tip {
+  font-size: 12.5px;
+  color: #aab6e4;
+  background: rgba(61,123,255,0.12);
+  border: 1px solid rgba(95,168,255,0.25);
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
 
 /* buttons */
 .btn {
