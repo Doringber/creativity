@@ -223,15 +223,15 @@
   }
 
   // ---------- aim + throw ----------
-  function arcPoint(x0, y0, x1, y1, t) {
+  function arcPoint(x0, y0, x1, y1, t, arc) {
     const e = 1 - Math.pow(1 - t, 2);
-    return [x0 + (x1 - x0) * e, y0 + (y1 - y0) * e - Math.sin(Math.PI * t) * 120];
+    return [x0 + (x1 - x0) * e, y0 + (y1 - y0) * e - Math.sin(Math.PI * t) * (arc ?? 120)];
   }
   function drawAim(x, y) {
     el.aim.innerHTML = "";
-    const x0 = W / 2, y0 = H - 46;
+    const x0 = W / 2, y0 = H - 46, arc = D.selectedWeapon().arc;
     for (let i = 1; i <= 7; i++) {
-      const [px, py] = arcPoint(x0, y0, x, y, i / 8);
+      const [px, py] = arcPoint(x0, y0, x, y, i / 8, arc);
       const d = document.createElement("div"); d.className = "aim-dot";
       d.style.left = px + "px"; d.style.top = py + "px"; d.style.opacity = (0.3 + i * 0.09).toFixed(2);
       el.aim.appendChild(d);
@@ -245,23 +245,30 @@
     if (S.ballActive) return;
     S.ballActive = true; A.sfx.throw();
     const w = D.selectedWeapon();
-    const node = document.createElement("div"); node.className = "ball spin";
+    const node = document.createElement("div"); node.className = "ball";
     const img = document.createElement("img"); img.src = w.uri;
     img.onerror = () => { img.src = D.BALL_URI; };
     node.appendChild(img);
     el.balllayer.appendChild(node);
-    particles(W / 2, H - 46, "#cfe0ff", 8);   // launch puff
+    particles(W / 2, H - 46, w.trail || "#cfe0ff", 8);   // launch puff
     S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.5 / (w.speed || 1), lastTrail: 0, weapon: w };
   }
   function updateBall(now, dt) {
     const b = S.ball; if (!b) return;
+    const w = b.weapon || {};
     b.t += dt / b.dur; const t = Math.min(1, b.t);
-    const [cx, cy] = arcPoint(b.x0, b.y0, b.x1, b.y1, t);
-    b.node.style.transform = `translate(${cx}px,${cy}px) scale(${1 - 0.4 * t})`;
-    if (now - b.lastTrail > 22) { trail(cx, cy); b.lastTrail = now; }
+    const [cx, cy] = arcPoint(b.x0, b.y0, b.x1, b.y1, t, w.arc);
+    const rot = t * (w.turns ?? 1.5) * 360 * (b.x1 < b.x0 ? -1 : 1);  // tumble toward throw direction
+    b.node.style.transform = `translate(${cx}px,${cy}px) rotate(${rot}deg) scale(${1 - 0.4 * t})`;
+    if (now - b.lastTrail > 20) { trail(cx, cy, w.trail); b.lastTrail = now; }
     if (t >= 1) resolveThrow(b);
   }
-  function trail(x, y) { const d = document.createElement("div"); d.className = "ball-trail"; d.style.left = x + "px"; d.style.top = y + "px"; el.balllayer.appendChild(d); later(() => d.remove(), 450); }
+  function trail(x, y, color) {
+    const d = document.createElement("div"); d.className = "ball-trail";
+    d.style.left = x + "px"; d.style.top = y + "px";
+    if (color) d.style.background = `radial-gradient(circle, ${color}, rgba(255,255,255,0))`;
+    el.balllayer.appendChild(d); later(() => d.remove(), 450);
+  }
 
   function resolveThrow(b) {
     b.node.remove(); S.ball = null;
