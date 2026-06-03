@@ -54,11 +54,15 @@
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
-      try { await el.camera.play(); } catch {}
+      el.camera.setAttribute("playsinline", ""); el.camera.muted = true;
+      resumeCamera();
+      el.camera.onloadedmetadata = resumeCamera;
+      el.camera.oncanplay = resumeCamera;
     } catch { document.body.classList.add("no-cam"); }
   }
-  // iOS can pause the video on reload/refocus — keep it alive
-  function resumeCamera() { if (el.camera.srcObject) el.camera.play?.().catch(() => {}); }
+  // iOS frequently pauses the getUserMedia video (refocus/permission flow) —
+  // keep nudging it so we never fall back to the blank blue screen.
+  function resumeCamera() { if (el.camera.srcObject && el.camera.paused) el.camera.play?.().catch(() => {}); }
   function onOrient(e) { if (e.alpha == null) return; S.view.hasGyro = true; S.view.tYaw = e.alpha; S.view.tPitch = clamp(e.beta - 90, -45, 45); }
   async function startGyro() {
     try {
@@ -242,15 +246,18 @@
     S.ballActive = true; A.sfx.throw();
     const w = D.selectedWeapon();
     const node = document.createElement("div"); node.className = "ball spin";
-    const img = document.createElement("img"); img.src = w.uri; node.appendChild(img);
+    const img = document.createElement("img"); img.src = w.uri;
+    img.onerror = () => { img.src = D.BALL_URI; };
+    node.appendChild(img);
     el.balllayer.appendChild(node);
-    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.46 / (w.speed || 1), lastTrail: 0, weapon: w };
+    particles(W / 2, H - 46, "#cfe0ff", 8);   // launch puff
+    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.5 / (w.speed || 1), lastTrail: 0, weapon: w };
   }
   function updateBall(now, dt) {
     const b = S.ball; if (!b) return;
     b.t += dt / b.dur; const t = Math.min(1, b.t);
     const [cx, cy] = arcPoint(b.x0, b.y0, b.x1, b.y1, t);
-    b.node.style.transform = `translate(${cx}px,${cy}px) scale(${1 - 0.55 * t})`;
+    b.node.style.transform = `translate(${cx}px,${cy}px) scale(${1 - 0.4 * t})`;
     if (now - b.lastTrail > 22) { trail(cx, cy); b.lastTrail = now; }
     if (t >= 1) resolveThrow(b);
   }
@@ -438,11 +445,12 @@
     refreshHud(); el.feverFill.style.width = "0%";
     if (!S.rafId) { S.lastFrame = performance.now(); S.rafId = requestAnimationFrame(frame); }
     countdown(() => { restartSpawn(); S.tickTimer = setInterval(tick, 1000); toast("🧭 הזז את הטלפון כדי לחפש"); });
+    clearInterval(S.camKeep); S.camKeep = setInterval(resumeCamera, 1000);
   }
   function tick() { if (S.paused) return; S.timeLeft--; refreshHud(); if (S.timeLeft <= 5 && S.timeLeft > 0) A.sfx.count(true); if (S.timeLeft <= 0) endGame(); }
 
   function endGame() {
-    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearCreatures(); clearLaters();
+    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.camKeep); clearCreatures(); clearLaters();
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
     document.body.classList.remove("playing", "fever");
     [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
@@ -561,7 +569,8 @@
 
   if ("serviceWorker" in navigator) {
     let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (refreshing || S.running) return; refreshing = true; location.reload(); });
+    const hadController = !!navigator.serviceWorker.controller; // only reload on real UPDATES, not first install
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (refreshing || !hadController || S.running) return; refreshing = true; location.reload(); });
     addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
   bind();
