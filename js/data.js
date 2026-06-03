@@ -52,10 +52,13 @@ ${eye}
   // use those PNG characters instead of the built-in vector mascots.
   let SPECIES_ACTIVE = SPECIES;
   if (Array.isArray(window.PANGO_SPRITES) && window.PANGO_SPRITES.length) {
-    SPECIES_ACTIVE = window.PANGO_SPRITES.map((s) => ({
+    const monsters = window.PANGO_SPRITES.map((s) => ({
       id: s.id, name: s.name, rarity: s.rarity, points: s.points, weight: s.weight,
       uri: "assets/sprites/" + s.file, uriBlink: "assets/sprites/" + s.file,
     }));
+    // keep the blue Pango mascot (the brand character) as the signature creature
+    const pango = SPECIES.find((s) => s.id === "azure");
+    SPECIES_ACTIVE = [pango, ...monsters];
     byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
   }
 
@@ -79,6 +82,22 @@ ${eye}
 <text x="50" y="59" font-size="20" font-weight="900" text-anchor="middle" fill="#1f6dff" font-family="Arial">P</text>
 <ellipse cx="34" cy="26" rx="13" ry="7" fill="#fff" opacity="0.55" transform="rotate(-25 34 26)"/></svg>`);
 
+  // ---- weapons (what you throw to catch) ----
+  // ball is the default Pango ball (SVG); the rest are rendered from the pack.
+  // radius = catch-radius multiplier, speed = flight-speed multiplier.
+  const WEAPONS = [
+    { id: "ball",     name: "כדור פנגו",     uri: BALL_URI,            radius: 1.0,  speed: 1.0,  cost: 0 },
+    { id: "pan",      name: "מחבת",          file: "Pan.png",          radius: 1.45, speed: 1.0,  cost: 0 },
+    { id: "axe",      name: "גרזן",          file: "Axe.png",          radius: 1.2,  speed: 1.05, cost: 150 },
+    { id: "knife",    name: "סכין",          file: "Knife.png",        radius: 0.9,  speed: 1.45, cost: 150 },
+    { id: "shovel",   name: "את חפירה",      file: "Shovel.png",       radius: 1.3,  speed: 0.95, cost: 250 },
+    { id: "torch",    name: "לפיד",          file: "Torch.png",        radius: 1.15, speed: 1.1,  cost: 350 },
+    { id: "revolver", name: "אקדח",          file: "Revolver_1.png",   radius: 0.95, speed: 1.6,  cost: 500 },
+    { id: "flare",    name: "רובה זיקוקים",  file: "FlareGun.png",     radius: 1.35, speed: 1.1,  special: "splash", cost: 800 },
+    { id: "trap",     name: "מלכודת דובים",  file: "BearTrap_Open.png", radius: 2.0, speed: 0.9,  cost: 1200 },
+  ].map((w) => ({ ...w, uri: w.uri || ("assets/weapons/" + w.file) }));
+  const weaponById = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
+
   // ---- persistence ----
   const K = {
     profile: "pangogo.profile.v1",
@@ -90,8 +109,24 @@ ${eye}
   const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
   const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
-  function profile() { return load(K.profile, { xp: 0, coins: 0, totalCaught: 0 }); }
+  function profile() {
+    const p = load(K.profile, {});
+    p.xp = p.xp || 0; p.coins = p.coins || 0; p.totalCaught = p.totalCaught || 0;
+    p.owned = p.owned || ["ball", "pan"];
+    p.weapon = p.weapon && p.owned.includes(p.weapon) ? p.weapon : "ball";
+    return p;
+  }
   function saveProfile(p) { save(K.profile, p); }
+
+  function selectedWeapon() { return weaponById[profile().weapon] || WEAPONS[0]; }
+  function ownsWeapon(id) { return profile().owned.includes(id); }
+  function selectWeapon(id) { const p = profile(); if (p.owned.includes(id)) { p.weapon = id; saveProfile(p); return true; } return false; }
+  function buyWeapon(id) {
+    const p = profile(), w = weaponById[id];
+    if (!w || p.owned.includes(id)) return "owned";
+    if (p.coins < w.cost) return "poor";
+    p.coins -= w.cost; p.owned.push(id); p.weapon = id; saveProfile(p); return "bought";
+  }
   function levelFromXp(xp) { return Math.floor(Math.sqrt(xp / 60)) + 1; }
   function xpForLevel(lvl) { return Math.pow(lvl - 1, 2) * 60; }
 
@@ -140,6 +175,7 @@ ${eye}
 
   return {
     SPECIES: SPECIES_ACTIVE, byId, FINE_URI, BALL_URI,
+    WEAPONS, selectedWeapon, ownsWeapon, selectWeapon, buyWeapon,
     profile, saveProfile, levelFromXp, xpForLevel,
     dex, discover,
     board, addScore, bestScore, clearBoard,
