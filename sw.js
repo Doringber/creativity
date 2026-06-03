@@ -1,5 +1,5 @@
 /* Pango GO service worker — offline caching */
-const CACHE = "pangogo-v5";
+const CACHE = "pangogo-v6";
 const SPRITES = ["Cat","Dog","Chicken","Pigeon","Fish","PinkBlob","GreenBlob","Birb","Mushnub","Cactoro","Yeti","Ninja","Alien","GreenSpikyBlob","Orc","Wizard","Mushnub_Evolved"]
   .map((n) => "./assets/sprites/" + n + ".png");
 const WEAPONS = ["Axe","Knife","Pan","FlareGun","BearTrap_Open","Revolver_1","Shovel","Torch"]
@@ -32,22 +32,30 @@ self.addEventListener("activate", (e) => {
   );
 });
 
+function putCache(req, res) {
+  if (res && res.status === 200 && new URL(req.url).origin === self.location.origin) {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copy));
+  }
+  return res;
+}
+// HTML/JS/CSS/JSON change between releases → fetch fresh first (fall back to
+// cache when offline). Images rarely change → serve from cache for speed.
+function isCodeOrDoc(req) {
+  if (req.mode === "navigate") return true;
+  return /\.(html|js|css|json|webmanifest)$/.test(new URL(req.url).pathname);
+}
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
-  e.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req)
-        .then((res) => {
-          // cache same-origin successful responses
-          if (res && res.status === 200 && new URL(req.url).origin === self.location.origin) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-    })
-  );
+  if (isCodeOrDoc(req)) {
+    e.respondWith(
+      fetch(req).then((res) => putCache(req, res))
+        .catch(() => caches.match(req).then((c) => c || caches.match("./index.html")))
+    );
+  } else {
+    e.respondWith(
+      caches.match(req).then((cached) => cached || fetch(req).then((res) => putCache(req, res)))
+    );
+  }
 });
