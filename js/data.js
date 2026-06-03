@@ -5,13 +5,14 @@ window.PANGO = window.PANGO || {};
 
 PANGO.Data = (() => {
   // ---- species (each is a recoloured Pango mascot) ----
+  // Cohesive Pango palette: shades of blue + a white one, gold as the legendary.
   const SPECIES = [
-    { id: "azure",  name: "אזורי",  rarity: "common",    points: 10, weight: 42, body: ["#4485FF", "#1E54E0"], belly: "#7CA8FF", stripe: "#3D7BFF" },
-    { id: "leaf",   name: "עלוני",  rarity: "common",    points: 10, weight: 30, body: ["#46D17F", "#1FA85A"], belly: "#9BE9BE", stripe: "#2EBF6E" },
-    { id: "sunset", name: "שקיעי",  rarity: "uncommon",  points: 15, weight: 16, body: ["#FF9F45", "#F2691C"], belly: "#FFC58A", stripe: "#FF8A2A" },
-    { id: "berry",  name: "גרגרי",  rarity: "uncommon",  points: 15, weight: 14, body: ["#A06BFF", "#6E36E0"], belly: "#C9A8FF", stripe: "#8A52F0" },
-    { id: "bubble", name: "בועי",   rarity: "rare",      points: 25, weight: 7,  body: ["#FF6FB5", "#E0368A"], belly: "#FFB0D6", stripe: "#FF52A0" },
-    { id: "golden", name: "הזהב",   rarity: "legendary", points: 50, weight: 3,  body: ["#FFD86B", "#F2A900"], belly: "#FFE9A8", stripe: "#FFC32B" },
+    { id: "azure", name: "פַּנְגּוֹ",  rarity: "common",    points: 10, weight: 44, body: ["#2f86ff", "#1f6dff"], belly: "#bcd8ff", stripe: "#1f6dff" },
+    { id: "sky",   name: "תְּכֵלֶת",  rarity: "common",    points: 10, weight: 30, body: ["#7fc0ff", "#3f97ff"], belly: "#e3f1ff", stripe: "#5fa8ff" },
+    { id: "teal",  name: "טוּרְקִיז", rarity: "uncommon",  points: 15, weight: 14, body: ["#34d6c8", "#12a99c"], belly: "#b6f0ea", stripe: "#1fc4b6" },
+    { id: "royal", name: "מַלְכוּתִי", rarity: "uncommon",  points: 15, weight: 12, body: ["#5b6bff", "#2f3fe0"], belly: "#c8ccff", stripe: "#4452f0" },
+    { id: "snow",  name: "שַׁלְגִּי",  rarity: "rare",      points: 25, weight: 7,  body: ["#ffffff", "#dbe7ff"], belly: "#f2f7ff", stripe: "#1f6dff" },
+    { id: "golden",name: "הַזָּהָב",  rarity: "legendary", points: 50, weight: 3,  body: ["#ffd86b", "#f2a900"], belly: "#ffe9a8", stripe: "#ffc32b" },
   ];
   const byId = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
 
@@ -55,15 +56,17 @@ ${eye}
 <text x="50" y="69" font-size="50" font-weight="900" text-anchor="middle" fill="#FF4D5E" font-family="Arial">P</text>
 <line x1="22" y1="22" x2="78" y2="78" stroke="#FF4D5E" stroke-width="9" stroke-linecap="round"/></svg>`);
 
+  // Big, clear Pango catch-ball: bright blue top, white bottom, bold band, "P" button.
   const BALL_URI = "data:image/svg+xml," + encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-<defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4485FF"/><stop offset="1" stop-color="#1E54E0"/></linearGradient></defs>
-<circle cx="50" cy="50" r="46" fill="#fff" stroke="#0B1B3A" stroke-width="4"/>
-<path d="M4 50 a46 46 0 0 1 92 0 z" fill="url(#t)"/>
-<rect x="4" y="46" width="92" height="8" fill="#0B1B3A"/>
-<circle cx="50" cy="50" r="13" fill="#fff" stroke="#0B1B3A" stroke-width="5"/>
-<circle cx="50" cy="50" r="5" fill="#cfe0ff"/>
-<ellipse cx="36" cy="28" rx="10" ry="6" fill="#fff" opacity="0.5" transform="rotate(-25 36 28)"/></svg>`);
+<defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f97ff"/><stop offset="1" stop-color="#1f6dff"/></linearGradient>
+<linearGradient id="bm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6efff"/></linearGradient></defs>
+<circle cx="50" cy="50" r="47" fill="url(#bm)" stroke="#103a8e" stroke-width="3"/>
+<path d="M3 50 a47 47 0 0 1 94 0 z" fill="url(#t)"/>
+<rect x="3" y="45" width="94" height="10" fill="#103a8e"/>
+<circle cx="50" cy="50" r="16" fill="#fff" stroke="#103a8e" stroke-width="5"/>
+<text x="50" y="59" font-size="20" font-weight="900" text-anchor="middle" fill="#1f6dff" font-family="Arial">P</text>
+<ellipse cx="34" cy="26" rx="13" ry="7" fill="#fff" opacity="0.55" transform="rotate(-25 34 26)"/></svg>`);
 
   // ---- persistence ----
   const K = {
