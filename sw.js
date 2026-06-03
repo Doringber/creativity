@@ -1,7 +1,9 @@
 /* Pango GO service worker — offline caching */
-const CACHE = "pangogo-v4";
+const CACHE = "pangogo-v5";
 const SPRITES = ["Cat","Dog","Chicken","Pigeon","Fish","PinkBlob","GreenBlob","Birb","Mushnub","Cactoro","Yeti","Ninja","Alien","GreenSpikyBlob","Orc","Wizard","Mushnub_Evolved"]
   .map((n) => "./assets/sprites/" + n + ".png");
+const WEAPONS = ["Axe","Knife","Pan","FlareGun","BearTrap_Open","Revolver_1","Shovel","Torch"]
+  .map((n) => "./assets/weapons/" + n + ".png");
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,6 +17,7 @@ const ASSETS = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   ...SPRITES,
+  ...WEAPONS,
 ];
 
 self.addEventListener("install", (e) => {

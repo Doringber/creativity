@@ -34,7 +34,7 @@
   const $ = (id) => document.getElementById(id);
   const el = {};
   ("camera stage playfield aim balllayer radar fx feverFlash hud score comboPill combo timer pauseBtn " +
-   "fever feverFill homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip " +
+   "fever feverFill homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
    "homeBest homeLevel homeCoins soundBtn endScreen endEmoji finalScore eCaught eCombo eCoins " +
    "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn top3 toast")
     .split(" ").forEach((k) => { el[k] = $(k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())); });
@@ -237,10 +237,11 @@
   function throwBall(x, y) {
     if (S.ballActive) return;
     S.ballActive = true; A.sfx.throw();
+    const w = D.selectedWeapon();
     const node = document.createElement("div"); node.className = "ball spin";
-    const img = document.createElement("img"); img.src = D.BALL_URI; node.appendChild(img);
+    const img = document.createElement("img"); img.src = w.uri; node.appendChild(img);
     el.balllayer.appendChild(node);
-    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.46, lastTrail: 0 };
+    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.46 / (w.speed || 1), lastTrail: 0, weapon: w };
   }
   function updateBall(now, dt) {
     const b = S.ball; if (!b) return;
@@ -254,10 +255,20 @@
 
   function resolveThrow(b) {
     b.node.remove(); S.ball = null;
-    let best = null, bestD = diff().catchRadius;
+    const wpn = b.weapon || { radius: 1 };
+    const radius = diff().catchRadius * (wpn.radius || 1);
+    let best = null, bestD = radius;
     S.creatures.forEach((c) => { if (!c.alive || c.frozen || !c.visible) return; const d = Math.hypot(c.sx - b.x1, c.sy - b.y1); if (d < bestD) { bestD = d; best = c; } });
-    if (best) { if (best.hazard) { hitHazard(best); S.ballActive = false; } else catchSequence(best); }
-    else {
+    if (best) {
+      if (best.hazard) { hitHazard(best); S.ballActive = false; return; }
+      catchSequence(best);
+      // flare gun: splash — also catch nearby creatures
+      if (wpn.special === "splash") {
+        const extra = [];
+        S.creatures.forEach((c) => { if (c !== best && c.alive && !c.frozen && c.visible && !c.hazard && Math.hypot(c.sx - b.x1, c.sy - b.y1) < radius * 1.6) extra.push(c); });
+        extra.slice(0, 3).forEach((c, i) => later(() => { if (c.alive && S.running) catchSequence(c); }, 150 * (i + 1)));
+      }
+    } else {
       A.sfx.miss(); S.ballActive = false;
       S.creatures.forEach((c) => { if (c.alive && !c.hazard && c.visible && Math.hypot(c.sx - b.x1, c.sy - b.y1) < 130) scare(c); });
     }
@@ -460,8 +471,31 @@
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
+  function renderWeaponBar() {
+    const bar = el.weapBar; if (!bar) return;
+    const sel = D.selectedWeapon().id;
+    bar.innerHTML = "";
+    D.WEAPONS.forEach((w) => {
+      const owned = D.ownsWeapon(w.id);
+      const chip = document.createElement("button");
+      chip.className = "weap" + (w.id === sel ? " sel" : "") + (owned ? "" : " locked");
+      chip.innerHTML = `<img src="${w.uri}" alt=""><span class="weap-name">${w.name}</span>` +
+        (owned ? "" : `<span class="weap-cost">🪙${w.cost}</span>`);
+      chip.addEventListener("click", () => {
+        if (D.ownsWeapon(w.id)) { D.selectWeapon(w.id); A.sfx.blip(); renderWeaponBar(); }
+        else {
+          const r = D.buyWeapon(w.id);
+          if (r === "bought") { A.sfx.coin(); toast(`נפתח: ${w.name}! 🗡️`); refreshHome(); }
+          else if (r === "poor") { A.sfx.miss(); toast(`חסרים מטבעות (${w.cost}🪙) — תפוס עוד!`); }
+        }
+      });
+      bar.appendChild(chip);
+    });
+  }
+
   function refreshHome() {
     const p = D.profile();
+    renderWeaponBar();
     el.homeMascot.src = D.SPECIES[0].uri;
     el.homeBest.textContent = D.bestScore();
     el.homeLevel.textContent = D.levelFromXp(p.xp);
