@@ -14,7 +14,7 @@ PANGO.Data = (() => {
     { id: "snow",  name: "שַׁלְגִּי",  rarity: "rare",      points: 25, weight: 7,  body: ["#ffffff", "#dbe7ff"], belly: "#f2f7ff", stripe: "#1f6dff" },
     { id: "golden",name: "הַזָּהָב",  rarity: "legendary", points: 50, weight: 3,  body: ["#ffd86b", "#f2a900"], belly: "#ffe9a8", stripe: "#ffc32b" },
   ];
-  const byId = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
+  let byId = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
 
   // Build a Pango mascot SVG with the given palette → data URI.
   function svg(sp, { blink = false } = {}) {
@@ -45,8 +45,19 @@ ${eye}
     return "data:image/svg+xml," + encodeURIComponent(s);
   }
 
-  // pre-render normal + blink for each species
+  // pre-render normal + blink for each built-in (fallback) species
   SPECIES.forEach((sp) => { sp.uri = svg(sp); sp.uriBlink = svg(sp, { blink: true }); });
+
+  // If real sprite art was provided (assets/sprites + assets/sprites/sprites.js),
+  // use those PNG characters instead of the built-in vector mascots.
+  let SPECIES_ACTIVE = SPECIES;
+  if (Array.isArray(window.PANGO_SPRITES) && window.PANGO_SPRITES.length) {
+    SPECIES_ACTIVE = window.PANGO_SPRITES.map((s) => ({
+      id: s.id, name: s.name, rarity: s.rarity, points: s.points, weight: s.weight,
+      uri: "assets/sprites/" + s.file, uriBlink: "assets/sprites/" + s.file,
+    }));
+    byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
+  }
 
   // the "fine" hazard + the throwing ball as data URIs
   const FINE_URI = "data:image/svg+xml," + encodeURIComponent(
@@ -128,7 +139,7 @@ ${eye}
   function saveSettings(s) { save(K.settings, s); }
 
   return {
-    SPECIES, byId, FINE_URI, BALL_URI,
+    SPECIES: SPECIES_ACTIVE, byId, FINE_URI, BALL_URI,
     profile, saveProfile, levelFromXp, xpForLevel,
     dex, discover,
     board, addScore, bestScore, clearBoard,

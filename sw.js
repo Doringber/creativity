@@ -1,16 +1,20 @@
 /* Pango GO service worker — offline caching */
-const CACHE = "pangogo-v3";
+const CACHE = "pangogo-v4";
+const SPRITES = ["Cat","Dog","Chicken","Pigeon","Fish","PinkBlob","GreenBlob","Birb","Mushnub","Cactoro","Yeti","Ninja","Alien","GreenSpikyBlob","Orc","Wizard","Mushnub_Evolved"]
+  .map((n) => "./assets/sprites/" + n + ".png");
 const ASSETS = [
   "./",
   "./index.html",
   "./css/style.css",
   "./js/audio.js",
+  "./assets/sprites/sprites.js",
   "./js/data.js",
   "./js/game.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
+  ...SPRITES,
 ];
 
 self.addEventListener("install", (e) => {
