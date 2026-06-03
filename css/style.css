@@ -10,11 +10,12 @@ b{font-weight:800;}
 
 /* camera */
 #camera,.camera-fallback{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
-.camera-fallback{display:none;background:
+#camera{z-index:1;}
+.camera-fallback{z-index:0;display:block;background:
   radial-gradient(circle at 25% 18%,#7fc0ff 0%,transparent 42%),
   radial-gradient(circle at 80% 25%,#bfe0ff 0%,transparent 40%),
   linear-gradient(170deg,#4aa3ff,#1f6dff 60%,#0a4ad6);}
-body.no-cam .camera-fallback{display:block;}
+body.no-cam #camera{display:none;}
 
 /* stage & layers */
 #stage{position:fixed;inset:0;z-index:5;pointer-events:none;will-change:transform;}
@@ -69,6 +70,10 @@ body.playing #stage{pointer-events:auto;}
 @keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0;}}
 .flash{position:fixed;inset:0;z-index:11;pointer-events:none;background:var(--bad);opacity:0;animation:flash .4s ease-out;}
 @keyframes flash{0%{opacity:.45;}100%{opacity:0;}}
+.impact{position:absolute;border-radius:50%;border:4px solid #fff;box-shadow:0 0 16px rgba(255,255,255,.7);pointer-events:none;z-index:9;animation:impact .42s ease-out forwards;}
+@keyframes impact{0%{transform:translate(-50%,-50%) scale(.25);opacity:.95;}100%{transform:translate(-50%,-50%) scale(1);opacity:0;}}
+.boom{position:absolute;border-radius:50%;pointer-events:none;z-index:9;background:radial-gradient(circle,#fff 0%,#ffd86b 30%,rgba(255,120,40,.55) 60%,transparent 72%);animation:boom .48s ease-out forwards;}
+@keyframes boom{0%{transform:translate(-50%,-50%) scale(.2);opacity:1;}100%{transform:translate(-50%,-50%) scale(1.25);opacity:0;}}
 .fever-flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
   background:radial-gradient(circle at 50% 50%,rgba(255,195,43,.0) 40%,rgba(255,195,43,.35) 100%);transition:opacity .4s;}
 body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}
@@ -90,6 +95,13 @@ body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}
 .icon-pill{background:rgba(255,255,255,.85);font-size:15px;cursor:pointer;border:none;padding:9px 13px;}
 
 /* fever bar */
+/* in-game weapon switch button */
+.weapon-btn{position:fixed;left:12px;bottom:calc(54px + var(--safe-bottom));z-index:22;width:58px;height:58px;border-radius:50%;
+  border:none;background:#fff;box-shadow:0 4px 14px rgba(8,30,80,.35);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;}
+.weapon-btn img{width:42px;height:42px;object-fit:contain;pointer-events:none;}
+.weapon-btn::after{content:"⇄";position:absolute;top:-3px;inset-inline-end:-3px;width:22px;height:22px;border-radius:50%;
+  background:var(--blue);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(8,30,80,.4);}
+
 .fever{position:fixed;bottom:calc(16px + var(--safe-bottom));left:50%;transform:translateX(-50%);width:min(88%,440px);height:26px;
   background:rgba(255,255,255,.9);border-radius:999px;z-index:20;overflow:hidden;box-shadow:0 4px 14px rgba(8,30,80,.25);}
 .fever-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue2),var(--gold));transition:width .25s ease;}
