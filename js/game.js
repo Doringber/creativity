@@ -34,7 +34,7 @@
   const $ = (id) => document.getElementById(id);
   const el = {};
   ("camera stage playfield aim balllayer radar fx feverFlash hud score comboPill combo timer pauseBtn " +
-   "fever feverFill homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
+   "fever feverFill weaponBtn weaponImg homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
    "homeBest homeLevel homeCoins soundBtn endScreen endEmoji finalScore eCaught eCombo eCoins " +
    "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn top3 toast")
     .split(" ").forEach((k) => { el[k] = $(k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())); });
@@ -54,8 +54,11 @@
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
+      try { await el.camera.play(); } catch {}
     } catch { document.body.classList.add("no-cam"); }
   }
+  // iOS can pause the video on reload/refocus — keep it alive
+  function resumeCamera() { if (el.camera.srcObject) el.camera.play?.().catch(() => {}); }
   function onOrient(e) { if (e.alpha == null) return; S.view.hasGyro = true; S.view.tYaw = e.alpha; S.view.tPitch = clamp(e.beta - 90, -45, 45); }
   async function startGyro() {
     try {
@@ -257,6 +260,8 @@
     b.node.remove(); S.ball = null;
     const wpn = b.weapon || { radius: 1 };
     const radius = diff().catchRadius * (wpn.radius || 1);
+    impact(b.x1, b.y1, radius, wpn.special === "splash");   // shows the weapon's catch area
+    if (wpn.special === "splash") shake(10, 300);
     let best = null, bestD = radius;
     S.creatures.forEach((c) => { if (!c.alive || c.frozen || !c.visible) return; const d = Math.hypot(c.sx - b.x1, c.sy - b.y1); if (d < bestD) { bestD = d; best = c; } });
     if (best) {
@@ -351,6 +356,17 @@
   function shake(m, d) { S.shakeMag = m; S.shakeUntil = performance.now() + d; }
   function hitStop(ms) { S.timeScale = 0; later(() => { S.timeScale = 1; }, ms); }
   function flash() { const f = document.createElement("div"); f.className = "flash"; el.fx.appendChild(f); later(() => f.remove(), 420); }
+  function impact(x, y, r, boom) {
+    const ring = document.createElement("div"); ring.className = "impact";
+    ring.style.left = x + "px"; ring.style.top = y + "px"; ring.style.width = ring.style.height = (2 * r) + "px";
+    el.fx.appendChild(ring); later(() => ring.remove(), 420);
+    if (boom) {
+      const bm = document.createElement("div"); bm.className = "boom";
+      bm.style.left = x + "px"; bm.style.top = y + "px"; bm.style.width = bm.style.height = (2.6 * r) + "px";
+      el.fx.appendChild(bm); later(() => bm.remove(), 480);
+      particles(x, y, "#ffb04a", 18);
+    }
+  }
   function burst(x, y, t, cls) { const b = document.createElement("div"); b.className = "burst " + cls; b.style.left = x + "px"; b.style.top = y + "px"; b.textContent = t; el.fx.appendChild(b); later(() => b.remove(), 900); }
   function particles(x, y, color, n) {
     for (let i = 0; i < n; i++) { const p = document.createElement("div"); p.className = "particle"; p.style.left = x + "px"; p.style.top = y + "px"; p.style.background = color;
@@ -360,6 +376,15 @@
   function toast(text) { el.toast.textContent = text; show(el.toast); requestAnimationFrame(() => el.toast.classList.add("show")); clearTimeout(toastT); toastT = setTimeout(() => { el.toast.classList.remove("show"); setTimeout(() => hide(el.toast), 300); }, 2200); }
 
   // ---------- HUD ----------
+  function refreshWeaponBtn() { el.weaponImg.src = D.selectedWeapon().uri; }
+  function cycleWeapon() {
+    const owned = D.WEAPONS.filter((w) => D.ownsWeapon(w.id));
+    if (owned.length < 2) { toast("פתח עוד נשקים בבית 🏠"); return; }
+    const cur = D.selectedWeapon().id;
+    const i = owned.findIndex((w) => w.id === cur);
+    const next = owned[(i + 1) % owned.length];
+    D.selectWeapon(next.id); refreshWeaponBtn(); A.sfx.blip(); toast("נשק: " + next.name);
+  }
   function refreshHud() { el.score.textContent = S.score; el.timer.textContent = S.timeLeft; }
   function updateCombo() {
     el.combo.textContent = "x" + S.combo;
@@ -371,6 +396,8 @@
   function bindInput() {
     addEventListener("pointerdown", (e) => {
       if (!S.running || S.paused) return;
+      const t = e.target;
+      if (t && t.closest && t.closest(".hud,.weapon-btn,.fever,.overlay")) return; // taps on UI aren't throws
       S.pointer = { sx: e.clientX, sy: e.clientY, moved: 0, look: false };
       drawAim(e.clientX, e.clientY);   // always preview the throw arc on press
     });
@@ -405,8 +432,9 @@
     document.body.classList.remove("fever");
     document.body.classList.add("playing");
     [el.homeScreen, el.endScreen].forEach(hide);
-    [el.hud, el.fever].forEach(show);
+    [el.hud, el.fever, el.weaponBtn].forEach(show);
     el.comboPill.classList.add("hidden");
+    refreshWeaponBtn();
     refreshHud(); el.feverFill.style.width = "0%";
     if (!S.rafId) { S.lastFrame = performance.now(); S.rafId = requestAnimationFrame(frame); }
     countdown(() => { restartSpawn(); S.tickTimer = setInterval(tick, 1000); toast("🧭 הזז את הטלפון כדי לחפש"); });
@@ -417,7 +445,7 @@
     S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearCreatures(); clearLaters();
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
     document.body.classList.remove("playing", "fever");
-    [el.hud, el.fever].forEach(hide); el.stage.style.transform = "";
+    [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
     A.stopMusic(); A.sfx.end();
 
     const prof = D.profile(); const lvlBefore = D.levelFromXp(prof.xp);
@@ -515,6 +543,7 @@
     el.againBtn.addEventListener("click", () => { A.init(); startGame(); });
     el.homeBtn.addEventListener("click", goHome);
     el.pauseBtn.addEventListener("click", togglePause);
+    el.weaponBtn.addEventListener("click", cycleWeapon);
     el.saveScoreBtn.addEventListener("click", () => {
       const name = el.playerName.value.trim() || "אנונימי";
       localStorage.setItem("pangogo.name", name); D.addScore(name, S.score);
@@ -524,7 +553,7 @@
       const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
       el.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     });
-    document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); });
+    document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden) resumeCamera(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
     el.soundBtn.textContent = D.settings().sound ? "🔊" : "🔇";
     refreshHome();
@@ -532,7 +561,7 @@
 
   if ("serviceWorker" in navigator) {
     let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (refreshing) return; refreshing = true; location.reload(); });
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (refreshing || S.running) return; refreshing = true; location.reload(); });
     addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
   bind();
