@@ -1,8 +1,8 @@
 /* Pango GO service worker — offline caching */
-const CACHE = "pangogo-v6";
+const CACHE = "pangogo-v7";
 const SPRITES = ["Cat","Dog","Chicken","Pigeon","Fish","PinkBlob","GreenBlob","Birb","Mushnub","Cactoro","Yeti","Ninja","Alien","GreenSpikyBlob","Orc","Wizard","Mushnub_Evolved"]
   .map((n) => "./assets/sprites/" + n + ".png");
-const WEAPONS = ["Axe","Knife","Pan","FlareGun","BearTrap_Open","Revolver_1","Shovel","Torch"]
+const WEAPONS = ["Axe","Pan","FlareGun","BearTrap_Open","Shovel","Torch"]
   .map((n) => "./assets/weapons/" + n + ".png");
 const ASSETS = [
   "./",

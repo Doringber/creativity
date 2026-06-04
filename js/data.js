@@ -82,6 +82,23 @@ ${eye}
 <text x="50" y="59" font-size="20" font-weight="900" text-anchor="middle" fill="#1f6dff" font-family="Arial">P</text>
 <ellipse cx="34" cy="26" rx="13" ry="7" fill="#fff" opacity="0.55" transform="rotate(-25 34 26)"/></svg>`);
 
+  // kid-friendly throwables (replace the knife & gun)
+  const BUBBLE_URI = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs><radialGradient id="bub" cx="0.36" cy="0.3" r="0.85">
+<stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.5" stop-color="#bfe3ff" stop-opacity="0.55"/><stop offset="1" stop-color="#7fc0ff" stop-opacity="0.4"/></radialGradient></defs>
+<circle cx="50" cy="50" r="44" fill="url(#bub)" stroke="#bfe3ff" stroke-width="3"/>
+<ellipse cx="36" cy="30" rx="13" ry="9" fill="#fff" opacity="0.9" transform="rotate(-25 36 30)"/>
+<circle cx="66" cy="62" r="6" fill="#fff" opacity="0.6"/></svg>`);
+
+  const WAND_URI = "data:image/svg+xml," + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+<defs><linearGradient id="st" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#ffc32b"/></linearGradient></defs>
+<rect x="40" y="40" width="11" height="52" rx="5" fill="#7a4bd0" transform="rotate(40 45 66)"/>
+<path d="M68 14 l6.5 13.5 L89 29 l-10.5 9.5 L81 53 L68 45 L55 53 l2.5-14.5 L47 29 l14.5-1.5 Z" fill="url(#st)" stroke="#e0a100" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="30" cy="84" r="3.5" fill="#ffd23f" opacity="0.85"/>
+<circle cx="84" cy="20" r="3" fill="#fff" opacity="0.9"/></svg>`);
+
   // ---- weapons (what you throw to catch) ----
   // ball is the default Pango ball (SVG); the rest are rendered from the pack.
   // radius = catch-radius multiplier, speed = flight-speed multiplier.
@@ -89,10 +106,10 @@ ${eye}
     { id: "ball",     name: "כדור פנגו",     uri: BALL_URI,            radius: 1.0,  speed: 1.0,  cost: 0,    arc: 120, turns: 1.5, trail: "#cfe0ff", fx: "pop" },
     { id: "pan",      name: "מחבת",          file: "Pan.png",          radius: 1.45, speed: 1.0,  cost: 0,    arc: 120, turns: 2,   trail: "#e9eefc", fx: "pop" },
     { id: "axe",      name: "גרזן",          file: "Axe.png",          radius: 1.2,  speed: 1.05, cost: 80,   arc: 165, turns: 3,   trail: "#dfe7ff", fx: "debris" },
-    { id: "knife",    name: "סכין",          file: "Knife.png",        radius: 0.9,  speed: 1.45, cost: 80,   arc: 80,  turns: 4,   trail: "#eaf0ff", fx: "spark" },
+    { id: "bubble",   name: "בועה",          uri: BUBBLE_URI,          radius: 0.95, speed: 1.45, cost: 80,   arc: 90,  turns: 1.5, trail: "#bfe3ff", fx: "pop" },
     { id: "shovel",   name: "את חפירה",      file: "Shovel.png",       radius: 1.3,  speed: 0.95, cost: 120,  arc: 165, turns: 2.5, trail: "#e2c9a8", fx: "debris" },
     { id: "torch",    name: "לפיד",          file: "Torch.png",        radius: 1.15, speed: 1.1,  cost: 150,  arc: 120, turns: 2,   trail: "#ff9f45", fx: "fire" },
-    { id: "revolver", name: "אקדח",          file: "Revolver_1.png",   radius: 1.0,  speed: 1.7,  cost: 200,  arc: 45,  turns: 0.4, trail: "#ffe08a", fx: "smoke", special: "hitscan" },
+    { id: "wand",     name: "שרביט קסם",     uri: WAND_URI,            radius: 1.05, speed: 1.7,  cost: 200,  arc: 45,  turns: 0.5, trail: "#ffd6f0", fx: "spark", special: "hitscan" },
     { id: "flare",    name: "רובה זיקוקים",  file: "FlareGun.png",     radius: 1.35, speed: 1.2,  cost: 350,  arc: 60,  turns: 0.6, trail: "#ff7a2a", special: "splash", fx: "boom" },
     { id: "trap",     name: "מלכודת דובים",  file: "BearTrap_Open.png", radius: 1.6, speed: 0.85, cost: 400,  arc: 150, turns: 1.2, trail: "#c9ced8", fx: "snap", special: "deploy" },
   ].map((w) => ({ ...w, uri: w.uri || ("assets/weapons/" + w.file) }));
