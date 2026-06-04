@@ -112,14 +112,18 @@
     node.className = "target " + (hazard ? "bomb" : (sp.rarity === "legendary" ? "legendary" : sp.rarity === "rare" ? "rare" : ""));
     const sprite = document.createElement("span"); sprite.className = "sprite";
     const img = document.createElement("img"); img.src = hazard ? D.FINE_URI : sp.uri; sprite.appendChild(img);
-    node.appendChild(sprite); sprite.style.animationDuration = rand(0.45, 0.8).toFixed(2) + "s";
+    node.appendChild(sprite);
+    const idle = ["hop", "bobwig", "breathe", "sway", "jelly"][(Math.random() * 5) | 0];
+    const dur = rand(0.5, 0.95).toFixed(2);
+    // pop-in, then a lively idle loop
+    sprite.style.animation = `popin .35s cubic-bezier(.2,.9,.3,1.4) both, ${idle} ${dur}s ease-in-out .35s infinite`;
 
     const sm = dd.speedMul;
     const c = {
       sp, hazard, node, sprite, img, alive: true, frozen: false, behavior,
       yaw: ((S.view.yaw + rand(-dd.spread, dd.spread)) % 360 + 360) % 360,
       pitch: clamp(rand(-dd.spread * 0.32, dd.spread * 0.32), -28, 28),
-      vyaw: rand(-12, 12) * sm, vpitch: rand(-6, 6) * sm,
+      vyaw: rand(-18, 18) * sm, vpitch: rand(-9, 9) * sm,
       camoPhase: Math.random() * 6.28, nextTeleport: performance.now() + rand(1800, 3200),
       fleeUntil: 0, aimSince: 0, blinkAt: performance.now() + rand(2000, 5000),
       points: hazard ? -25 : sp.points, sx: -999, sy: -999, dy: 999, dp: 999, visible: false,
