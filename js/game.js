@@ -50,20 +50,30 @@
   function clearLaters() { S.timeouts.forEach(clearTimeout); S.timeouts.clear(); }
 
   // ---------- sensors ----------
+  function hasLiveCam() {
+    const s = el.camera.srcObject;
+    return !!(s && s.getVideoTracks && s.getVideoTracks().some((t) => t.readyState === "live"));
+  }
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) { document.body.classList.add("no-cam"); return; }
+    if (hasLiveCam()) { resumeCamera(); return; }   // already have a live stream — just resume
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
       el.camera.setAttribute("playsinline", ""); el.camera.muted = true;
-      resumeCamera();
+      st.getVideoTracks().forEach((t) => t.addEventListener("ended", () => { if (S.running) startCamera(); }));
       el.camera.onloadedmetadata = resumeCamera;
       el.camera.oncanplay = resumeCamera;
+      resumeCamera();
     } catch { document.body.classList.add("no-cam"); }
   }
-  // iOS frequently pauses the getUserMedia video (refocus/permission flow) —
-  // keep nudging it so we never fall back to the blank blue screen.
+  // iOS frequently pauses/stops the getUserMedia video — keep it alive, and
+  // fully re-acquire if the stream died, so we never get stuck on blue.
   function resumeCamera() { if (el.camera.srcObject && el.camera.paused) el.camera.play?.().catch(() => {}); }
+  function ensureCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) return;
+    if (!hasLiveCam()) startCamera(); else resumeCamera();
+  }
   function onOrient(e) { if (e.alpha == null) return; S.view.hasGyro = true; S.view.tYaw = e.alpha; S.view.tPitch = clamp(e.beta - 90, -45, 45); }
   async function startGyro() {
     try {
@@ -521,6 +531,7 @@
   // ---------- flow ----------
   function startGame() {
     A.init(); if (D.settings().sound) A.startMusic();
+    startCamera(); startGyro();   // (re)acquire camera+sensors on every start, incl. "play again"
     Object.assign(S, { running: true, paused: false, score: 0, caught: 0, combo: 1, bestCombo: 1, level: 1, levelProgress: 0,
       timeLeft: ROUND_SECONDS, lastCatchAt: 0, coinsRun: 0, xpRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
     clearCreatures(); clearTraps(); clearLaters();
@@ -534,7 +545,7 @@
     refreshHud(); el.feverFill.style.width = "0%";
     if (!S.rafId) { S.lastFrame = performance.now(); S.rafId = requestAnimationFrame(frame); }
     countdown(() => { restartSpawn(); S.tickTimer = setInterval(tick, 1000); toast("🧭 הזז את הטלפון כדי לחפש"); });
-    clearInterval(S.camKeep); S.camKeep = setInterval(resumeCamera, 1000);
+    clearInterval(S.camKeep); S.camKeep = setInterval(ensureCamera, 1000);
   }
   function tick() { if (S.paused) return; S.timeLeft--; refreshHud(); if (S.timeLeft <= 5 && S.timeLeft > 0) A.sfx.count(true); if (S.timeLeft <= 0) endGame(); }
 
@@ -636,7 +647,7 @@
 
   function bind() {
     bindInput();
-    el.playBtn.addEventListener("click", () => { A.init(); startCamera(); startGyro(); startGame(); });
+    el.playBtn.addEventListener("click", () => { A.init(); startGame(); });
     el.againBtn.addEventListener("click", () => { A.init(); startGame(); });
     el.homeBtn.addEventListener("click", goHome);
     el.pauseBtn.addEventListener("click", togglePause);
@@ -650,7 +661,7 @@
       const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
       el.soundBtn.textContent = s.sound ? "🔊" : "🔇";
     });
-    document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden) resumeCamera(); });
+    document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden && S.running) ensureCamera(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
     el.soundBtn.textContent = D.settings().sound ? "🔊" : "🔇";
     refreshHome();
