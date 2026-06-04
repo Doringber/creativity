@@ -61,10 +61,13 @@
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
       el.camera.setAttribute("playsinline", ""); el.camera.muted = true;
-      st.getVideoTracks().forEach((t) => t.addEventListener("ended", () => { if (S.running) startCamera(); }));
+      st.getVideoTracks().forEach((t) => t.addEventListener("ended", () => ensureCamera()));
       el.camera.onloadedmetadata = resumeCamera;
       el.camera.oncanplay = resumeCamera;
       resumeCamera();
+      // keep the camera warm for the whole session (incl. between rounds) so a
+      // round never starts on a cold/blue camera
+      if (!S.camKeep) S.camKeep = setInterval(ensureCamera, 500);
     } catch { document.body.classList.add("no-cam"); }
   }
   // iOS frequently pauses/stops the getUserMedia video — keep it alive, and
@@ -545,12 +548,11 @@
     refreshHud(); el.feverFill.style.width = "0%";
     if (!S.rafId) { S.lastFrame = performance.now(); S.rafId = requestAnimationFrame(frame); }
     countdown(() => { restartSpawn(); S.tickTimer = setInterval(tick, 1000); toast("🧭 הזז את הטלפון כדי לחפש"); });
-    clearInterval(S.camKeep); S.camKeep = setInterval(ensureCamera, 1000);
   }
   function tick() { if (S.paused) return; S.timeLeft--; refreshHud(); if (S.timeLeft <= 5 && S.timeLeft > 0) A.sfx.count(true); if (S.timeLeft <= 0) endGame(); }
 
   function endGame() {
-    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.camKeep); clearCreatures(); clearTraps(); clearLaters();
+    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearCreatures(); clearTraps(); clearLaters();
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
     document.body.classList.remove("playing", "fever");
     [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
