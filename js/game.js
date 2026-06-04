@@ -274,8 +274,7 @@
     b.node.remove(); S.ball = null;
     const wpn = b.weapon || { radius: 1 };
     const radius = diff().catchRadius * (wpn.radius || 1);
-    impact(b.x1, b.y1, radius, wpn.special === "splash");   // shows the weapon's catch area
-    if (wpn.special === "splash") shake(10, 300);
+    impact(b.x1, b.y1, radius, wpn);   // weapon-specific hit effect + catch-area ring
     let best = null, bestD = radius;
     S.creatures.forEach((c) => { if (!c.alive || c.frozen || !c.visible) return; const d = Math.hypot(c.sx - b.x1, c.sy - b.y1); if (d < bestD) { bestD = d; best = c; } });
     if (best) {
@@ -370,18 +369,32 @@
   function shake(m, d) { S.shakeMag = m; S.shakeUntil = performance.now() + d; }
   function hitStop(ms) { S.timeScale = 0; later(() => { S.timeScale = 1; }, ms); }
   function flash() { const f = document.createElement("div"); f.className = "flash"; el.fx.appendChild(f); later(() => f.remove(), 420); }
-  function impact(x, y, r, big) {
-    // bright flash disc — the "explosion", on EVERY throw
-    const bm = document.createElement("div"); bm.className = "boom" + (big ? " big" : "");
-    bm.style.left = x + "px"; bm.style.top = y + "px";
-    const d = (big ? 2.4 : 1.5) * r; bm.style.width = bm.style.height = d + "px";
-    el.fx.appendChild(bm); later(() => bm.remove(), 440);
-    // shockwave ring sized to the weapon's catch area
-    const ring = document.createElement("div"); ring.className = "impact";
-    ring.style.left = x + "px"; ring.style.top = y + "px"; ring.style.width = ring.style.height = (2 * r) + "px";
-    el.fx.appendChild(ring); later(() => ring.remove(), 450);
-    particles(x, y, big ? "#ffae42" : "#ffffff", big ? 22 : 12);
-    shake(big ? 12 : 5, big ? 320 : 160);
+  function ringFx(x, y, r) {
+    const e = document.createElement("div"); e.className = "impact";
+    e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = e.style.height = (2 * r) + "px";
+    el.fx.appendChild(e); later(() => e.remove(), 450);
+  }
+  function disc(x, y, size, grad) {
+    const e = document.createElement("div"); e.className = "boom";
+    e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = e.style.height = size + "px"; e.style.background = grad;
+    el.fx.appendChild(e); later(() => e.remove(), 440);
+  }
+  function smoke(x, y, size) {
+    const e = document.createElement("div"); e.className = "smoke";
+    e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = e.style.height = size + "px";
+    el.fx.appendChild(e); later(() => e.remove(), 650);
+  }
+  // Each weapon hits with its own signature effect.
+  function impact(x, y, r, w) {
+    const fx = (w && w.fx) || "pop";
+    ringFx(x, y, r);
+    if (fx === "boom") { disc(x, y, 2.4 * r, "radial-gradient(circle,#fff 0%,#ffd86b 30%,rgba(255,110,30,.78) 60%,transparent 78%)"); particles(x, y, "#ffae42", 22); particles(x, y, "#ffd23f", 10); shake(13, 340); }
+    else if (fx === "spark") { disc(x, y, 1.1 * r, "radial-gradient(circle,#fff 0%,#fff3b0 40%,transparent 70%)"); particles(x, y, "#fff7c0", 16); particles(x, y, "#ffd23f", 8); shake(5, 130); }
+    else if (fx === "smoke") { disc(x, y, 1.0 * r, "radial-gradient(circle,#fff 0%,#ffe08a 35%,transparent 70%)"); smoke(x, y, 1.7 * r); particles(x, y, "#cfd3d9", 8); shake(7, 170); }
+    else if (fx === "fire") { disc(x, y, 1.5 * r, "radial-gradient(circle,#fff 0%,#ffb24a 40%,rgba(255,80,20,.6) 65%,transparent 80%)"); particles(x, y, "#ff7a2a", 16); particles(x, y, "#ffd23f", 8); shake(7, 200); }
+    else if (fx === "debris") { disc(x, y, 1.3 * r, "radial-gradient(circle,#fff 0%,#ffe9c0 40%,transparent 72%)"); particles(x, y, "#d8b88a", 14); particles(x, y, "#ffffff", 6); shake(9, 210); }
+    else if (fx === "snap") { disc(x, y, 1.2 * r, "radial-gradient(circle,#fff 0%,#cdd3dd 45%,transparent 72%)"); particles(x, y, "#c9ced8", 16); shake(10, 240); }
+    else { disc(x, y, 1.5 * r, "radial-gradient(circle,#fff 0%,#ffe08a 40%,rgba(255,150,40,.5) 65%,transparent 78%)"); particles(x, y, "#ffffff", 12); shake(5, 150); }
   }
   function burst(x, y, t, cls) { const b = document.createElement("div"); b.className = "burst " + cls; b.style.left = x + "px"; b.style.top = y + "px"; b.textContent = t; el.fx.appendChild(b); later(() => b.remove(), 900); }
   function particles(x, y, color, n) {
