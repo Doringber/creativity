@@ -68,10 +68,13 @@
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
       el.camera.setAttribute("playsinline", ""); el.camera.muted = true;
       el.camera.onloadedmetadata = resumeCamera; el.camera.oncanplay = resumeCamera;
+      // recover instantly if iOS pauses the video or ends the track mid-game
+      el.camera.onpause = () => playCam();
+      st.getVideoTracks().forEach((t) => { t.onended = () => { camBusy = false; ensureCamera(); }; });
       await playCam();
     } catch { document.body.classList.add("no-cam"); }
     finally { camBusy = false; }
-    if (!S.camKeep) S.camKeep = setInterval(ensureCamera, 1500);   // gentle keep-alive
+    if (!S.camKeep) S.camKeep = setInterval(ensureCamera, 800);   // backstop keep-alive (camBusy-guarded)
   }
   // gentle: resume if paused; only re-acquire when truly dead and not already acquiring
   function ensureCamera() {
