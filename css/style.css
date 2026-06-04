@@ -27,15 +27,20 @@ body.playing #stage{pointer-events:auto;}
 /* creatures */
 .target{position:absolute;top:0;left:0;width:96px;height:96px;margin:-48px 0 0 -48px;pointer-events:none;
   will-change:transform,opacity;filter:drop-shadow(0 8px 9px rgba(8,30,80,.45));}
-.target .sprite{display:block;width:100%;height:100%;animation:hop .6s ease-in-out infinite;}
+.target .sprite{display:block;width:100%;height:100%;animation:hop .6s ease-in-out infinite;transform-origin:50% 90%;}
 .target .sprite img{width:100%;height:100%;object-fit:contain;display:block;}
 .target.rare{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
 .target.legendary{filter:drop-shadow(0 0 22px var(--gold)) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
 .target::before{content:"";position:absolute;inset:2px;border-radius:50%;border:3px solid rgba(255,255,255,.5);animation:pulse 1.6s ease-out infinite;}
 .target.legendary::before{border-color:var(--gold);}
 .target.bomb::before{border-color:var(--bad);}
-.target.catching .sprite{animation:caught .55s cubic-bezier(.5,-0.4,.4,1) forwards;}
-@keyframes hop{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-13px) rotate(3deg);}}
+.target.catching .sprite{animation:caught .55s cubic-bezier(.5,-0.4,.4,1) forwards !important;}
+@keyframes hop{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-15px) rotate(3deg);}}
+@keyframes bobwig{0%,100%{transform:translateY(2px) rotate(-7deg);}50%{transform:translateY(-13px) rotate(7deg);}}
+@keyframes breathe{0%,100%{transform:translateY(0) scale(1,1);}50%{transform:translateY(-7px) scale(1.07,.93);}}
+@keyframes sway{0%{transform:translate(-5px,0) rotate(-5deg);}50%{transform:translate(5px,-12px) rotate(5deg);}100%{transform:translate(-5px,0) rotate(-5deg);}}
+@keyframes jelly{0%,100%{transform:translateY(0) scale(1,1);}25%{transform:translateY(-12px) scale(.92,1.1);}55%{transform:translateY(0) scale(1.1,.9);}75%{transform:translateY(-4px) scale(.97,1.03);}}
+@keyframes popin{0%{transform:scale(0) rotate(-30deg);}70%{transform:scale(1.15) rotate(6deg);}100%{transform:scale(1) rotate(0);}}
 @keyframes pulse{0%{transform:scale(.8);opacity:.7;}100%{transform:scale(1.55);opacity:0;}}
 @keyframes caught{0%{transform:scale(1) rotate(0);}55%{transform:scale(.5) rotate(220deg);}100%{transform:scale(0) rotate(420deg);}}
 
