@@ -78,6 +78,13 @@ body.playing #stage{pointer-events:auto;}
 @keyframes boom{0%{transform:translate(-50%,-50%) scale(.15);opacity:1;}100%{transform:translate(-50%,-50%) scale(1.15);opacity:0;}}
 .smoke{position:absolute;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,rgba(208,212,220,.85),rgba(170,176,188,.4),transparent 70%);animation:smoke .65s ease-out forwards;}
 @keyframes smoke{0%{transform:translate(-50%,-50%) scale(.3);opacity:.9;}100%{transform:translate(-50%,-62%) scale(1.35);opacity:0;}}
+.tracer{position:absolute;height:5px;transform-origin:0 50%;border-radius:3px;pointer-events:none;z-index:31;
+  box-shadow:0 0 8px rgba(255,224,138,.9);animation:tracer .2s ease-out forwards;}
+@keyframes tracer{0%{opacity:.95;}100%{opacity:0;}}
+.trap-deployed{position:absolute;top:0;left:0;width:84px;height:84px;margin:-42px 0 0 -42px;pointer-events:none;z-index:6;
+  transition:opacity .25s;filter:drop-shadow(0 6px 8px rgba(8,30,80,.45));}
+.trap-deployed img{width:100%;height:100%;object-fit:contain;}
+.trap-deployed::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:3px dashed var(--gold);animation:pulse 1.3s ease-out infinite;}
 .fever-flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
   background:radial-gradient(circle at 50% 50%,rgba(255,195,43,.0) 40%,rgba(255,195,43,.35) 100%);transition:opacity .4s;}
 body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}

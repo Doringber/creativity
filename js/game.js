@@ -26,6 +26,7 @@
     timeScale: 1, shakeMag: 0, shakeUntil: 0,
     ballActive: false, ball: null,
     creatures: new Set(),
+    traps: new Set(),
     view: { yaw: 0, pitch: 0, tYaw: 0, tPitch: 0, hasGyro: false },
     pointer: null, timeouts: new Set(),
   };
@@ -138,7 +139,7 @@
     let dt = Math.min(0.05, (now - (S.lastFrame || now)) / 1000); S.lastFrame = now;
     if (S.running && !S.paused) {
       updateView(dt); updateFever(now, dt);
-      updateCreatures(now, dt * S.timeScale); updateBall(now, dt); render(now);
+      updateCreatures(now, dt * S.timeScale); updateBall(now, dt); updateTraps(now); render(now);
     }
     S.rafId = requestAnimationFrame(frame);
   }
@@ -243,15 +244,33 @@
 
   function throwBall(x, y) {
     if (S.ballActive) return;
-    S.ballActive = true; A.sfx.throw();
     const w = D.selectedWeapon();
+    if (w.special === "hitscan") { shoot(x, y, w); return; }   // gun: instant
+    S.ballActive = true; A.sfx.throw();
     const node = document.createElement("div"); node.className = "ball";
     const img = document.createElement("img"); img.src = w.uri;
     img.onerror = () => { img.src = D.BALL_URI; };
     node.appendChild(img);
     el.balllayer.appendChild(node);
     particles(W / 2, H - 46, w.trail || "#cfe0ff", 8);   // launch puff
-    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.5 / (w.speed || 1), lastTrail: 0, weapon: w };
+    S.ball = { node, x0: W / 2, y0: H - 46, x1: x, y1: y, t: 0, dur: 0.55 / (w.speed || 1), lastTrail: 0, weapon: w };
+  }
+  // gun: no flight — muzzle flash, a tracer line, instant hit at the aim point
+  function shoot(x, y, w) {
+    S.ballActive = true; A.sfx.throw();
+    particles(W / 2, H - 46, w.trail || "#ffe08a", 10);
+    tracer(W / 2, H - 46, x, y, w.trail || "#ffe08a");
+    const radius = diff().catchRadius * (w.radius || 1);
+    impact(x, y, radius, w);
+    resolveHit(x, y, w, radius);
+    later(() => { if (!S.ball) S.ballActive = false; }, 240);
+  }
+  function tracer(x0, y0, x1, y1, color) {
+    const len = Math.hypot(x1 - x0, y1 - y0), ang = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+    const t = document.createElement("div"); t.className = "tracer";
+    t.style.left = x0 + "px"; t.style.top = y0 + "px"; t.style.width = len + "px";
+    t.style.transform = `rotate(${ang}deg)`; t.style.background = `linear-gradient(90deg, ${color}, transparent)`;
+    el.fx.appendChild(t); later(() => t.remove(), 200);
   }
   function updateBall(now, dt) {
     const b = S.ball; if (!b) return;
@@ -275,22 +294,66 @@
     const wpn = b.weapon || { radius: 1 };
     const radius = diff().catchRadius * (wpn.radius || 1);
     impact(b.x1, b.y1, radius, wpn);   // weapon-specific hit effect + catch-area ring
+    if (wpn.special === "deploy") { deployTrap(b.x1, b.y1, wpn, radius); S.ballActive = false; return; }
+    resolveHit(b.x1, b.y1, wpn, radius);
+  }
+  function resolveHit(x, y, wpn, radius) {
     let best = null, bestD = radius;
-    S.creatures.forEach((c) => { if (!c.alive || c.frozen || !c.visible) return; const d = Math.hypot(c.sx - b.x1, c.sy - b.y1); if (d < bestD) { bestD = d; best = c; } });
+    S.creatures.forEach((c) => { if (!c.alive || c.frozen || !c.visible) return; const d = Math.hypot(c.sx - x, c.sy - y); if (d < bestD) { bestD = d; best = c; } });
     if (best) {
       if (best.hazard) { hitHazard(best); S.ballActive = false; return; }
       catchSequence(best);
-      // flare gun: splash — also catch nearby creatures
-      if (wpn.special === "splash") {
+      if (wpn.special === "splash") {   // flare gun: also catch nearby
         const extra = [];
-        S.creatures.forEach((c) => { if (c !== best && c.alive && !c.frozen && c.visible && !c.hazard && Math.hypot(c.sx - b.x1, c.sy - b.y1) < radius * 1.6) extra.push(c); });
+        S.creatures.forEach((c) => { if (c !== best && c.alive && !c.frozen && c.visible && !c.hazard && Math.hypot(c.sx - x, c.sy - y) < radius * 1.6) extra.push(c); });
         extra.slice(0, 3).forEach((c, i) => later(() => { if (c.alive && S.running) catchSequence(c); }, 150 * (i + 1)));
       }
     } else {
       A.sfx.miss(); S.ballActive = false;
-      S.creatures.forEach((c) => { if (c.alive && !c.hazard && c.visible && Math.hypot(c.sx - b.x1, c.sy - b.y1) < 130) scare(c); });
+      S.creatures.forEach((c) => { if (c.alive && !c.hazard && c.visible && Math.hypot(c.sx - x, c.sy - y) < 130) scare(c); });
     }
   }
+
+  // ---------- deployed bear trap (stays in the world, auto-catches) ----------
+  function screenToWorld(sx, sy) {
+    const halfH = HFOV / 2, halfV = (HFOV * (H / W)) / 2;
+    return { yaw: (S.view.yaw + (sx - W / 2) / (W / 2) * halfH + 360) % 360, pitch: S.view.pitch - (sy - H / 2) / (H / 2) * halfV };
+  }
+  function deployTrap(sx, sy, w, radius) {
+    const wp = screenToWorld(sx, sy);
+    const node = document.createElement("div"); node.className = "trap-deployed";
+    const img = document.createElement("img"); img.src = w.uri; node.appendChild(img);
+    el.playfield.appendChild(node);
+    const tr = { yaw: wp.yaw, pitch: wp.pitch, node, life: later(() => removeTrap(tr), 7000), catches: 0, lastCatch: 0, sx, sy };
+    S.traps.add(tr);
+    A.sfx.wobble(); toast("🪤 מלכודת הוצבה — תופסת לבד!");
+  }
+  function removeTrap(tr) { if (tr.dead) return; tr.dead = true; clearTimeout(tr.life); S.traps.delete(tr); tr.node.style.opacity = "0"; later(() => tr.node.remove(), 250); }
+  function updateTraps(now) {
+    S.traps.forEach((tr) => {
+      // project to screen
+      const dy = angDiff(tr.yaw - S.view.yaw), dp = tr.pitch - S.view.pitch;
+      const halfH = HFOV / 2, halfV = (HFOV * (H / W)) / 2;
+      tr.sx = W / 2 + (dy / halfH) * (W / 2); tr.sy = H / 2 - (dp / halfV) * (H / 2);
+      const vis = Math.abs(dy) <= halfH * 1.12 && Math.abs(dp) <= halfV * 1.3;
+      tr.node.style.display = vis ? "" : "none";
+      if (vis) tr.node.style.transform = `translate(${tr.sx}px, ${tr.sy}px)`;
+      // auto-catch by world angle (works even when you look away)
+      if (now - tr.lastCatch < 320) return;
+      for (const c of S.creatures) {
+        if (!c.alive || c.frozen || c.hazard) continue;
+        if (Math.abs(angDiff(c.yaw - tr.yaw)) < 8 && Math.abs(c.pitch - tr.pitch) < 8) {
+          tr.lastCatch = now; tr.catches++;
+          c.frozen = true; clearTimeout(c.life);
+          impact(tr.sx, tr.sy, 70, { fx: "snap" });
+          finishCatch(c, tr.sx, tr.sy);
+          if (tr.catches >= 4) removeTrap(tr);
+          break;
+        }
+      }
+    });
+  }
+  function clearTraps() { S.traps.forEach((tr) => { clearTimeout(tr.life); tr.node.remove(); }); S.traps.clear(); }
   function hitHazard(c) {
     const x = c.sx, y = c.sy; removeCreature(c, false);
     S.score = Math.max(0, S.score - 25); S.combo = 1; S.fever = Math.max(0, S.fever - 25); updateCombo();
@@ -456,7 +519,7 @@
     A.init(); if (D.settings().sound) A.startMusic();
     Object.assign(S, { running: true, paused: false, score: 0, caught: 0, combo: 1, bestCombo: 1, level: 1, levelProgress: 0,
       timeLeft: ROUND_SECONDS, lastCatchAt: 0, coinsRun: 0, xpRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
-    clearCreatures(); clearLaters();
+    clearCreatures(); clearTraps(); clearLaters();
     [el.balllayer, el.fx, el.radar, el.aim].forEach((n) => n.innerHTML = "");
     document.body.classList.remove("fever");
     document.body.classList.add("playing");
@@ -472,7 +535,7 @@
   function tick() { if (S.paused) return; S.timeLeft--; refreshHud(); if (S.timeLeft <= 5 && S.timeLeft > 0) A.sfx.count(true); if (S.timeLeft <= 0) endGame(); }
 
   function endGame() {
-    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.camKeep); clearCreatures(); clearLaters();
+    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.camKeep); clearCreatures(); clearTraps(); clearLaters();
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
     document.body.classList.remove("playing", "fever");
     [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
