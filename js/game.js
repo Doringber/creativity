@@ -50,32 +50,33 @@
   function clearLaters() { S.timeouts.forEach(clearTimeout); S.timeouts.clear(); }
 
   // ---------- sensors ----------
+  let camBusy = false;
   function hasLiveCam() {
     const s = el.camera.srcObject;
     return !!(s && s.getVideoTracks && s.getVideoTracks().some((t) => t.readyState === "live"));
   }
+  function playCam() { return el.camera.play?.().catch(() => {}); }
+  function resumeCamera() { if (el.camera.srcObject && el.camera.paused) playCam(); }
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) { document.body.classList.add("no-cam"); return; }
-    if (hasLiveCam()) { resumeCamera(); return; }   // already have a live stream — just resume
+    if (hasLiveCam()) { resumeCamera(); return; }
+    if (camBusy) return;                       // never run two getUserMedia at once (iOS drops the camera)
+    camBusy = true;
     try {
-      const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      const old = el.camera.srcObject; if (old) old.getTracks().forEach((t) => t.stop());  // drop stale stream first
+      const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
       el.camera.srcObject = st; document.body.classList.remove("no-cam");
       el.camera.setAttribute("playsinline", ""); el.camera.muted = true;
-      st.getVideoTracks().forEach((t) => t.addEventListener("ended", () => ensureCamera()));
-      el.camera.onloadedmetadata = resumeCamera;
-      el.camera.oncanplay = resumeCamera;
-      resumeCamera();
-      // keep the camera warm for the whole session (incl. between rounds) so a
-      // round never starts on a cold/blue camera
-      if (!S.camKeep) S.camKeep = setInterval(ensureCamera, 500);
+      el.camera.onloadedmetadata = resumeCamera; el.camera.oncanplay = resumeCamera;
+      await playCam();
     } catch { document.body.classList.add("no-cam"); }
+    finally { camBusy = false; }
+    if (!S.camKeep) S.camKeep = setInterval(ensureCamera, 1500);   // gentle keep-alive
   }
-  // iOS frequently pauses/stops the getUserMedia video — keep it alive, and
-  // fully re-acquire if the stream died, so we never get stuck on blue.
-  function resumeCamera() { if (el.camera.srcObject && el.camera.paused) el.camera.play?.().catch(() => {}); }
+  // gentle: resume if paused; only re-acquire when truly dead and not already acquiring
   function ensureCamera() {
-    if (!navigator.mediaDevices?.getUserMedia) return;
-    if (!hasLiveCam()) startCamera(); else resumeCamera();
+    if (!navigator.mediaDevices?.getUserMedia || camBusy) return;
+    if (hasLiveCam()) resumeCamera(); else startCamera();
   }
   function onOrient(e) { if (e.alpha == null) return; S.view.hasGyro = true; S.view.tYaw = e.alpha; S.view.tPitch = clamp(e.beta - 90, -45, 45); }
   async function startGyro() {
