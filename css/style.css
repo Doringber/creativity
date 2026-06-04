@@ -20,7 +20,8 @@ body.no-cam #camera{display:none;}
 /* stage & layers */
 #stage{position:fixed;inset:0;z-index:5;pointer-events:none;will-change:transform;}
 #playfield,#aim,#balllayer,#radar,#fx{position:absolute;inset:0;pointer-events:none;}
-#fx{z-index:9;} #balllayer{z-index:8;} #aim{z-index:7;} #radar{z-index:6;}
+#balllayer{z-index:8;} #aim{z-index:7;} #radar{z-index:6;}
+#fx{position:fixed;inset:0;z-index:31;pointer-events:none;}
 body.playing #stage{pointer-events:auto;}
 
 /* creatures */
@@ -46,7 +47,7 @@ body.playing #stage{pointer-events:auto;}
 .ball.wobble{animation:wobble .25s ease-in-out 3;}
 @keyframes ballspin{to{transform:rotate(360deg);}}
 @keyframes wobble{0%,100%{transform:rotate(0);}25%{transform:rotate(-24deg);}75%{transform:rotate(24deg);}}
-.ball-trail{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;
+.ball-trail{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;
   background:radial-gradient(circle,#fff,rgba(63,151,255,0));z-index:7;animation:fade .45s ease-out forwards;}
 @keyframes fade{to{opacity:0;transform:scale(.3);}}
 .aim-dot{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;opacity:.85;z-index:7;box-shadow:0 0 6px rgba(31,109,255,.8);}
@@ -70,10 +71,11 @@ body.playing #stage{pointer-events:auto;}
 @keyframes fly{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0;}}
 .flash{position:fixed;inset:0;z-index:11;pointer-events:none;background:var(--bad);opacity:0;animation:flash .4s ease-out;}
 @keyframes flash{0%{opacity:.45;}100%{opacity:0;}}
-.impact{position:absolute;border-radius:50%;border:4px solid #fff;box-shadow:0 0 16px rgba(255,255,255,.7);pointer-events:none;z-index:9;animation:impact .42s ease-out forwards;}
-@keyframes impact{0%{transform:translate(-50%,-50%) scale(.25);opacity:.95;}100%{transform:translate(-50%,-50%) scale(1);opacity:0;}}
-.boom{position:absolute;border-radius:50%;pointer-events:none;z-index:9;background:radial-gradient(circle,#fff 0%,#ffd86b 30%,rgba(255,120,40,.55) 60%,transparent 72%);animation:boom .48s ease-out forwards;}
-@keyframes boom{0%{transform:translate(-50%,-50%) scale(.2);opacity:1;}100%{transform:translate(-50%,-50%) scale(1.25);opacity:0;}}
+.impact{position:absolute;border-radius:50%;border:5px solid #fff;box-shadow:0 0 20px rgba(255,255,255,.95);pointer-events:none;z-index:31;animation:impact .45s ease-out forwards;}
+@keyframes impact{0%{transform:translate(-50%,-50%) scale(.2);opacity:1;}100%{transform:translate(-50%,-50%) scale(1);opacity:0;}}
+.boom{position:absolute;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,#fff 0%,#ffe08a 35%,rgba(255,150,40,.6) 60%,transparent 75%);animation:boom .42s ease-out forwards;}
+.boom.big{background:radial-gradient(circle,#fff 0%,#ffd86b 30%,rgba(255,110,30,.75) 60%,transparent 78%);}
+@keyframes boom{0%{transform:translate(-50%,-50%) scale(.15);opacity:1;}100%{transform:translate(-50%,-50%) scale(1.15);opacity:0;}}
 .fever-flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
   background:radial-gradient(circle at 50% 50%,rgba(255,195,43,.0) 40%,rgba(255,195,43,.35) 100%);transition:opacity .4s;}
 body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}
