@@ -86,15 +86,15 @@ ${eye}
   // ball is the default Pango ball (SVG); the rest are rendered from the pack.
   // radius = catch-radius multiplier, speed = flight-speed multiplier.
   const WEAPONS = [
-    { id: "ball",     name: "כדור פנגו",     uri: BALL_URI,            radius: 1.0,  speed: 1.0,  cost: 0,    arc: 120, turns: 1.5, trail: "#cfe0ff" },
-    { id: "pan",      name: "מחבת",          file: "Pan.png",          radius: 1.45, speed: 1.0,  cost: 0,    arc: 120, turns: 2,   trail: "#e9eefc" },
-    { id: "axe",      name: "גרזן",          file: "Axe.png",          radius: 1.2,  speed: 1.05, cost: 150,  arc: 165, turns: 3,   trail: "#dfe7ff" },
-    { id: "knife",    name: "סכין",          file: "Knife.png",        radius: 0.9,  speed: 1.45, cost: 150,  arc: 80,  turns: 4,   trail: "#eaf0ff" },
-    { id: "shovel",   name: "את חפירה",      file: "Shovel.png",       radius: 1.3,  speed: 0.95, cost: 250,  arc: 165, turns: 2.5, trail: "#e2c9a8" },
-    { id: "torch",    name: "לפיד",          file: "Torch.png",        radius: 1.15, speed: 1.1,  cost: 350,  arc: 120, turns: 2,   trail: "#ff9f45" },
-    { id: "revolver", name: "אקדח",          file: "Revolver_1.png",   radius: 0.95, speed: 1.7,  cost: 500,  arc: 45,  turns: 0.4, trail: "#ffe08a" },
-    { id: "flare",    name: "רובה זיקוקים",  file: "FlareGun.png",     radius: 1.35, speed: 1.2,  cost: 800,  arc: 60,  turns: 0.6, trail: "#ff7a2a", special: "splash" },
-    { id: "trap",     name: "מלכודת דובים",  file: "BearTrap_Open.png", radius: 2.0, speed: 0.85, cost: 1200, arc: 150, turns: 1.2, trail: "#c9ced8" },
+    { id: "ball",     name: "כדור פנגו",     uri: BALL_URI,            radius: 1.0,  speed: 1.0,  cost: 0,    arc: 120, turns: 1.5, trail: "#cfe0ff", fx: "pop" },
+    { id: "pan",      name: "מחבת",          file: "Pan.png",          radius: 1.45, speed: 1.0,  cost: 0,    arc: 120, turns: 2,   trail: "#e9eefc", fx: "pop" },
+    { id: "axe",      name: "גרזן",          file: "Axe.png",          radius: 1.2,  speed: 1.05, cost: 150,  arc: 165, turns: 3,   trail: "#dfe7ff", fx: "debris" },
+    { id: "knife",    name: "סכין",          file: "Knife.png",        radius: 0.9,  speed: 1.45, cost: 150,  arc: 80,  turns: 4,   trail: "#eaf0ff", fx: "spark" },
+    { id: "shovel",   name: "את חפירה",      file: "Shovel.png",       radius: 1.3,  speed: 0.95, cost: 250,  arc: 165, turns: 2.5, trail: "#e2c9a8", fx: "debris" },
+    { id: "torch",    name: "לפיד",          file: "Torch.png",        radius: 1.15, speed: 1.1,  cost: 350,  arc: 120, turns: 2,   trail: "#ff9f45", fx: "fire" },
+    { id: "revolver", name: "אקדח",          file: "Revolver_1.png",   radius: 0.95, speed: 1.7,  cost: 500,  arc: 45,  turns: 0.4, trail: "#ffe08a", fx: "smoke" },
+    { id: "flare",    name: "רובה זיקוקים",  file: "FlareGun.png",     radius: 1.35, speed: 1.2,  cost: 800,  arc: 60,  turns: 0.6, trail: "#ff7a2a", special: "splash", fx: "boom" },
+    { id: "trap",     name: "מלכודת דובים",  file: "BearTrap_Open.png", radius: 2.0, speed: 0.85, cost: 1200, arc: 150, turns: 1.2, trail: "#c9ced8", fx: "snap" },
   ].map((w) => ({ ...w, uri: w.uri || ("assets/weapons/" + w.file) }));
   const weaponById = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
 

@@ -76,6 +76,8 @@ body.playing #stage{pointer-events:auto;}
 .boom{position:absolute;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,#fff 0%,#ffe08a 35%,rgba(255,150,40,.6) 60%,transparent 75%);animation:boom .42s ease-out forwards;}
 .boom.big{background:radial-gradient(circle,#fff 0%,#ffd86b 30%,rgba(255,110,30,.75) 60%,transparent 78%);}
 @keyframes boom{0%{transform:translate(-50%,-50%) scale(.15);opacity:1;}100%{transform:translate(-50%,-50%) scale(1.15);opacity:0;}}
+.smoke{position:absolute;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,rgba(208,212,220,.85),rgba(170,176,188,.4),transparent 70%);animation:smoke .65s ease-out forwards;}
+@keyframes smoke{0%{transform:translate(-50%,-50%) scale(.3);opacity:.9;}100%{transform:translate(-50%,-62%) scale(1.35);opacity:0;}}
 .fever-flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
   background:radial-gradient(circle at 50% 50%,rgba(255,195,43,.0) 40%,rgba(255,195,43,.35) 100%);transition:opacity .4s;}
 body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}
