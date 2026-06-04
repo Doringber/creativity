@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Pango-blue rounded square -->
+    <path
+        android:fillColor="#1f6dff"
+        android:pathData="M0,24 C0,10.7 10.7,0 24,0 L84,0 C97.3,0 108,10.7 108,24 L108,84 C108,97.3 97.3,108 84,108 L24,108 C10.7,108 0,97.3 0,84 Z" />
+    <!-- white location pin -->
+    <path
+        android:fillColor="#ffffff"
+        android:pathData="M54,26 C42.9,26 34,34.9 34,46 C34,61 54,84 54,84 C54,84 74,61 74,46 C74,34.9 65.1,26 54,26 Z" />
+    <!-- gold center -->
+    <path
+        android:fillColor="#ffc32b"
+        android:pathData="M54,46 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+</vector>
