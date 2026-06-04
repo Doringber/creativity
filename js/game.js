@@ -260,7 +260,7 @@
     const [cx, cy] = arcPoint(b.x0, b.y0, b.x1, b.y1, t, w.arc);
     const rot = t * (w.turns ?? 1.5) * 360 * (b.x1 < b.x0 ? -1 : 1);  // tumble toward throw direction
     b.node.style.transform = `translate(${cx}px,${cy}px) rotate(${rot}deg) scale(${1 - 0.4 * t})`;
-    if (now - b.lastTrail > 20) { trail(cx, cy, w.trail); b.lastTrail = now; }
+    if (now - b.lastTrail > 13) { trail(cx, cy, w.trail); b.lastTrail = now; }
     if (t >= 1) resolveThrow(b);
   }
   function trail(x, y, color) {
@@ -370,16 +370,18 @@
   function shake(m, d) { S.shakeMag = m; S.shakeUntil = performance.now() + d; }
   function hitStop(ms) { S.timeScale = 0; later(() => { S.timeScale = 1; }, ms); }
   function flash() { const f = document.createElement("div"); f.className = "flash"; el.fx.appendChild(f); later(() => f.remove(), 420); }
-  function impact(x, y, r, boom) {
+  function impact(x, y, r, big) {
+    // bright flash disc — the "explosion", on EVERY throw
+    const bm = document.createElement("div"); bm.className = "boom" + (big ? " big" : "");
+    bm.style.left = x + "px"; bm.style.top = y + "px";
+    const d = (big ? 2.4 : 1.5) * r; bm.style.width = bm.style.height = d + "px";
+    el.fx.appendChild(bm); later(() => bm.remove(), 440);
+    // shockwave ring sized to the weapon's catch area
     const ring = document.createElement("div"); ring.className = "impact";
     ring.style.left = x + "px"; ring.style.top = y + "px"; ring.style.width = ring.style.height = (2 * r) + "px";
-    el.fx.appendChild(ring); later(() => ring.remove(), 420);
-    if (boom) {
-      const bm = document.createElement("div"); bm.className = "boom";
-      bm.style.left = x + "px"; bm.style.top = y + "px"; bm.style.width = bm.style.height = (2.6 * r) + "px";
-      el.fx.appendChild(bm); later(() => bm.remove(), 480);
-      particles(x, y, "#ffb04a", 18);
-    }
+    el.fx.appendChild(ring); later(() => ring.remove(), 450);
+    particles(x, y, big ? "#ffae42" : "#ffffff", big ? 22 : 12);
+    shake(big ? 12 : 5, big ? 320 : 160);
   }
   function burst(x, y, t, cls) { const b = document.createElement("div"); b.className = "burst " + cls; b.style.left = x + "px"; b.style.top = y + "px"; b.textContent = t; el.fx.appendChild(b); later(() => b.remove(), 900); }
   function particles(x, y, color, n) {
