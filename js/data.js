@@ -56,8 +56,10 @@ ${eye}
       id: s.id, name: s.name, rarity: s.rarity, points: s.points, weight: s.weight,
       uri: "assets/sprites/" + s.file, uriBlink: "assets/sprites/" + s.file,
     }));
-    // keep the blue Pango mascot (the brand character) as the signature creature
+    // the official Pango brand mascot is the signature creature + home hero
     const pango = SPECIES.find((s) => s.id === "azure");
+    pango.uri = "assets/sprites/pango_hero.png";
+    pango.uriBlink = "assets/sprites/pango_hero.png";
     SPECIES_ACTIVE = [pango, ...monsters];
     byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
   }
