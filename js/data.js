@@ -61,6 +61,9 @@ ${eye}
     pango.uri = "assets/sprites/pango_hero.png";
     pango.uriBlink = "assets/sprites/pango_hero.png";
     SPECIES_ACTIVE = [pango, ...monsters];
+    // the turquoise public-transport Pango — a special legendary
+    SPECIES_ACTIVE.push({ id: "transit", name: "פנגו תחבורה", rarity: "legendary", points: 50, weight: 3,
+      uri: "assets/sprites/pango_transit.png", uriBlink: "assets/sprites/pango_transit.png" });
     byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
   }
   // multiple Pango poses for the Home hero to cycle through
