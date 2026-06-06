@@ -129,8 +129,8 @@
     for (const sp of pool) if ((r -= wt(sp)) <= 0) return sp;
     return pool[0];
   }
-  // the blue Pango spawns in a random pose; others use their single sprite
-  function poseFor(sp) { return sp.id === "azure" ? D.HERO_POSES[(Math.random() * D.HERO_POSES.length) | 0] : sp.uri; }
+  // creatures use their own (crisp) sprite
+  function poseFor(sp) { return sp.uri; }
   function spawn() {
     if (!S.running || S.paused) return;
     const dd = diff();

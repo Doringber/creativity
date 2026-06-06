@@ -66,8 +66,8 @@ ${eye}
       uri: "assets/sprites/pango_transit.png", uriBlink: "assets/sprites/pango_transit.png" });
     byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
   }
-  // multiple Pango poses for the Home hero to cycle through
-  const HERO_POSES = ["pango_hero", "pango_p1", "pango_p2", "pango_p3", "pango_p4", "pango_p5"].map((n) => "assets/sprites/" + n + ".png");
+  // crisp Pango poses for the Home hero (high-res from the brand PNGs)
+  const HERO_POSES = ["pango_hero", "pango_transit"].map((n) => "assets/sprites/" + n + ".png");
 
   // the "fine" hazard + the throwing ball as data URIs
   const FINE_URI = "data:image/svg+xml," + encodeURIComponent(
