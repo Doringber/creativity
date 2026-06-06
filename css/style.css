@@ -304,3 +304,41 @@ body.fever .fever-fill{background:linear-gradient(90deg,var(--gold),#ff7a2a,var(
 .fruit.rare{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
 .fruit.legendary{filter:drop-shadow(0 0 22px var(--gold)) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
 .fruit.bomb{filter:drop-shadow(0 0 14px var(--bad)) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
+
+/* ===== Light home so the blue Pango pops (brand uses light backgrounds) ===== */
+.overlay.home{background:
+  radial-gradient(circle at 18% 12%, #eaf0ff 0, transparent 45%),
+  radial-gradient(circle at 85% 8%, #e6ecff 0, transparent 40%),
+  linear-gradient(180deg,#f4f7ff,#e9eefc);}
+.home .lvlchip{background:#fff;border-color:#e2e8ff;color:var(--ink);box-shadow:0 3px 10px rgba(20,32,92,.08);}
+.home .ring b{background:var(--blue);}
+.home .cur{background:#fff;border-color:#e2e8ff;color:var(--ink);box-shadow:0 3px 10px rgba(20,32,92,.08);}
+.home .cur.snd .ic{filter:none;}
+.home .passbar{background:#fff;border-color:#e2e8ff;color:var(--ink);box-shadow:0 3px 10px rgba(20,32,92,.08);}
+.home .pbar{background:#e7ecff;}
+.home .title{color:var(--blue);-webkit-text-fill-color:var(--blue);-webkit-text-stroke:0;text-shadow:0 2px 0 rgba(20,32,92,.08);}
+.home .title-accent{color:var(--gold);-webkit-text-fill-color:var(--gold);-webkit-text-stroke:0;}
+.home .mission-chip{background:#eef2ff;border-color:#dfe6ff;color:var(--ink);}
+.home .mission-chip b{color:var(--blue);}
+.home .vs-banner{background:#eef2ff;border-color:var(--blue);color:var(--ink);}
+.home .vs-banner b{color:var(--blue);}
+.home .podium{background:radial-gradient(ellipse at 50% 45%,rgba(20,32,92,.16),transparent 70%);}
+.home .howline{color:#6b76a8;}
+.home .panetitle{color:var(--ink);text-shadow:none;}
+.home .sec-title{color:#7a86b8;}
+.home .modechip{background:#eef2ff;border-color:#dfe6ff;color:var(--ink);}
+.home .modechip.act{background:var(--blue);color:#fff;border-color:var(--blue);}
+/* tab bar -> light */
+.home .tabbar{background:#fff;border-top:1px solid #e7ecff;box-shadow:0 -6px 20px rgba(20,32,92,.06);}
+.home .tab{color:#9aa3c8;}
+.home .tab.act{color:var(--blue);}
+.home .tab[data-tab="home"] .ic{background:linear-gradient(180deg,#5b6cff,#3d52f0);border-color:#fff;}
+/* light cards for weapons/shop/dex/board on the light home */
+.home .weap{background:#eef2ff;}
+.home .weap-name{color:var(--ink);}
+.home .dex-mini{background:#eef2ff;}
+.home .dex-name{color:var(--ink);}
+.home .shop-card{background:#eef2ff;border-color:#dfe6ff;color:var(--ink);}
+.home .shop-card .sd{color:#6b76a8;}
+.home .shop-sec{color:var(--ink);text-shadow:none;}
+.home .top3 li{background:#eef2ff;border-color:#dfe6ff;color:var(--ink);}

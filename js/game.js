@@ -779,7 +779,7 @@
     const cur = D.xpForLevel(lvl), next = D.xpForLevel(lvl + 1);
     const frac = Math.max(0, Math.min(1, (p.xp - cur) / Math.max(1, next - cur)));
     renderWeaponBar();
-    el.homeMascot.src = D.SPECIES[0].uri;
+    el.homeMascot.src = D.HERO_POSES[(Math.random() * D.HERO_POSES.length) | 0];   // a different Pango pose each time
     el.homeBest.textContent = D.bestScore();
     el.homeCoins.textContent = p.coins;
     el.homeGems.textContent = p.gems;
