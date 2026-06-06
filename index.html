@@ -69,13 +69,19 @@
       <div class="tabpane act" data-pane="home">
         <h1 class="title">Pango <span class="title-accent">GO</span></h1>
         <div class="mission-chip" id="mission-chip"><span>🎯</span><span id="mission-text">משימה יומית</span><b id="mission-reward">+60</b></div>
+        <div id="vs-banner" class="vs-banner hidden"></div>
         <div class="hero-wrap"><div class="podium"></div><img id="home-mascot" class="hero" alt="Pango" /></div>
+        <div class="modepick" id="modepick">
+          <button class="modechip act" data-mode="hunt"><span>🧭</span>ציד</button>
+          <button class="modechip" data-mode="frenzy"><span>🔥</span>טירוף</button>
+          <button class="modechip" data-mode="slice"><span>🍉</span>שיסוף</button>
+        </div>
         <div class="playrow">
           <button class="icbtn" id="to-weapons" title="נשקים">🪄</button>
           <button id="play-btn" class="btn btn-primary big">שחק</button>
           <button class="icbtn" id="to-dex" title="פנגודקס">📒</button>
         </div>
-        <p class="howline">🧭 הזז את הטלפון · גרור וזרוק לתפיסה</p>
+        <p class="howline" id="howline">🧭 הזז את הטלפון · גרור וזרוק לתפיסה</p>
       </div>
 
       <div class="tabpane" data-pane="weapons">
@@ -122,6 +128,7 @@
         <div class="stat"><span id="e-coins">0</span><small>🪙 הרווחת</small></div>
       </div>
       <div id="new-record" class="banner hidden">🏆 שיא חדש!</div>
+      <div id="vs-result" class="banner hidden"></div>
       <div id="new-species" class="banner species hidden"></div>
       <div id="mission-done" class="banner done hidden">✅ משימה יומית הושלמה!</div>
 
@@ -131,7 +138,10 @@
       </div>
 
       <button id="again-btn" class="btn btn-primary big">שחק שוב 🔁</button>
-      <button id="home-btn" class="btn btn-ghost">בית</button>
+      <div class="btn-row">
+        <button id="challenge-btn" class="btn btn-ghost">🔗 אתגר חבר</button>
+        <button id="home-btn" class="btn btn-ghost">בית</button>
+      </div>
 
       <ol id="top3" class="top3"></ol>
     </div>
