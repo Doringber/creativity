@@ -53,13 +53,14 @@
       <div class="lvlchip"><span class="ring" id="lvl-ring"><b id="player-level">1</b></span><span class="pname" id="player-name-top">שחקן</span></div>
       <div class="curbar">
         <span class="cur gold">🪙 <b id="home-coins">0</b></span>
-        <span class="cur tro">🏆 <b id="home-best">0</b></span>
+        <span class="cur gem">💎 <b id="home-gems">0</b></span>
+        <button class="cur snd" id="sound-btn"><span class="ic">🔊</span></button>
       </div>
     </div>
 
     <!-- Pango Pass (player XP progression) -->
     <div class="passbar">
-      <div class="prow"><span>🎟️ פנגו-פס · רמה <b id="pass-level">1</b></span><span id="pass-xp">0 / 100 XP</span></div>
+      <div class="prow"><span>🎟️ פנגו-פס · רמה <b id="pass-level">1</b></span><span id="pass-next"></span></div>
       <div class="pbar"><i id="pass-fill"></i></div>
     </div>
 
@@ -78,8 +79,13 @@
       </div>
 
       <div class="tabpane" data-pane="weapons">
-        <h2 class="panetitle">🪄 הנשק שלך <small>— בחר/פתח עם מטבעות</small></h2>
+        <h2 class="panetitle">🪄 הנשק שלך <small>— בחר את מה שזורקים</small></h2>
         <div class="weap-bar" id="weap-bar"></div>
+      </div>
+
+      <div class="tabpane" data-pane="shop">
+        <h2 class="panetitle">🛒 חנות</h2>
+        <div id="shop" class="shop"></div>
       </div>
 
       <div class="tabpane" data-pane="dex">
@@ -88,18 +94,18 @@
       </div>
 
       <div class="tabpane" data-pane="board">
-        <h2 class="panetitle">🏆 דירוג</h2>
+        <h2 class="panetitle">🏆 דירוג <small>— שיא: <b id="home-best">0</b></small></h2>
         <ol id="home-top3" class="top3"></ol>
       </div>
     </div>
 
     <!-- bottom tab bar -->
     <nav class="tabbar">
-      <button class="tab" data-tab="weapons"><span class="ic">🪄</span>נשקים</button>
+      <button class="tab" data-tab="shop"><span class="ic">🛒</span>חנות</button>
       <button class="tab" data-tab="dex"><span class="ic">📒</span>פנגודקס</button>
       <button class="tab act" data-tab="home"><span class="ic">🏠</span>בית</button>
+      <button class="tab" data-tab="weapons"><span class="ic">🪄</span>נשקים</button>
       <button class="tab" data-tab="board"><span class="ic">🏆</span>דירוג</button>
-      <button class="tab" id="sound-btn" data-tab="sound"><span class="ic">🔊</span>סאונד</button>
     </nav>
   </section>
 

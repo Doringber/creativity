@@ -36,7 +36,7 @@
   const el = {};
   ("camera stage playfield aim balllayer radar fx feverFlash hud score comboPill combo timer pauseBtn " +
    "fever feverFill weaponBtn weaponImg homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
-   "homeBest homeCoins soundBtn playerLevel playerNameTop lvlRing passLevel passXp passFill homeTop3 " +
+   "homeBest homeCoins homeGems soundBtn playerLevel playerNameTop lvlRing passLevel passNext passFill homeTop3 shop " +
    "endScreen endEmoji finalScore eCaught eCombo eCoins " +
    "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn top3 toast")
     .split(" ").forEach((k) => { el[k] = $(k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())); });
@@ -113,9 +113,11 @@
   // ---------- spawning ----------
   function pickSpecies() {
     const pool = allowedSpecies();
-    const total = pool.reduce((s, k) => s + k.weight, 0);
+    // Mega Lure boost: heavily favour rare/legendary spawns
+    const wt = (sp) => sp.weight * (S.lureActive && (sp.rarity === "rare" || sp.rarity === "legendary") ? 6 : 1);
+    const total = pool.reduce((s, k) => s + wt(k), 0);
     let r = Math.random() * total;
-    for (const sp of pool) if ((r -= sp.weight) <= 0) return sp;
+    for (const sp of pool) if ((r -= wt(sp)) <= 0) return sp;
     return pool[0];
   }
   function spawn() {
@@ -398,10 +400,12 @@
     S.lastCatchAt = now; S.bestCombo = Math.max(S.bestCombo, S.combo);
 
     const mult = (S.feverMode ? 2 : 1);
+    const coinMult = mult * (S.doublerActive ? 2 : 1);
     const gained = sp.points * S.combo * mult;
     S.score += gained; S.caught += 1;
-    S.coinsRun += Math.max(1, Math.round(sp.points / 5)) * mult;
+    S.coinsRun += Math.max(1, Math.round(sp.points / 5)) * coinMult;
     S.xpRun += sp.points;
+    if (sp.rarity === "legendary") S.gemsRun += 1;   // gems drop from legendaries
 
     if (D.discover(sp.id)) { S.newNames.push(sp.name); S.score += 25; S.coinsRun += 10; toast(`✨ מין חדש: ${sp.name}!  +25`); }
     bumpMission(sp);
@@ -541,7 +545,10 @@
     A.init(); if (D.settings().sound) A.startMusic();
     startCamera(); startGyro();   // (re)acquire camera+sensors on every start, incl. "play again"
     Object.assign(S, { running: true, paused: false, score: 0, caught: 0, combo: 1, bestCombo: 1, level: 1, levelProgress: 0,
-      timeLeft: ROUND_SECONDS, lastCatchAt: 0, coinsRun: 0, xpRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
+      timeLeft: ROUND_SECONDS, lastCatchAt: 0, coinsRun: 0, xpRun: 0, gemsRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
+    const armed = D.consumeArmed();   // boosts bought in the shop apply this round
+    S.lureActive = armed.lure; S.doublerActive = armed.doubler;
+    if (armed.lure || armed.doubler) later(() => toast((armed.lure ? "🧲 פיתיון פעיל " : "") + (armed.doubler ? "💰 ×2 מטבעות" : "")), 3300);
     clearCreatures(); clearTraps(); clearLaters();
     [el.balllayer, el.fx, el.radar, el.aim].forEach((n) => n.innerHTML = "");
     document.body.classList.remove("fever");
@@ -564,11 +571,17 @@
     A.stopMusic(); A.sfx.end();
 
     const prof = D.profile(); const lvlBefore = D.levelFromXp(prof.xp);
-    prof.xp += S.xpRun; prof.coins += S.coinsRun; prof.totalCaught += S.caught;
+    prof.xp += S.xpRun; prof.coins += S.coinsRun; prof.gems += (S.gemsRun || 0); prof.totalCaught += S.caught;
     const lvlAfter = D.levelFromXp(prof.xp);
     const m = D.mission(); let missionJustDone = false;
-    if (!m.done && m.progress >= m.target) { m.done = true; prof.coins += m.reward; D.saveMission(m); missionJustDone = true; }
+    if (!m.done && m.progress >= m.target) { m.done = true; prof.coins += m.reward; prof.gems += 3; D.saveMission(m); missionJustDone = true; }
     D.saveProfile(prof);
+    // Pango Pass: grant rewards for any newly reached levels
+    const grants = D.claimPass(lvlAfter);
+    if (grants.length) later(() => {
+      const txt = grants.map((g) => g.weapon ? "🪄 נשק" : g.gems ? ("💎" + g.gems) : ("🪙" + g.coins)).join("  ");
+      toast("🎟️ פרסי פנגו-פס: " + txt);
+    }, 1400);
 
     const best = D.bestScore(); const record = S.score > best && S.score > 0;
     el.finalScore.textContent = S.score;
@@ -643,6 +656,13 @@
     list.forEach((e, i) => { const li = document.createElement("li"); li.innerHTML = `<span class="r">${medals[i]}</span><span class="n">${esc(e.name)}</span><span class="p">${e.score}</span>`; elm.appendChild(li); });
   }
 
+  function passNextText(lvl) {
+    for (let l = lvl + 1; l <= lvl + 8; l++) {
+      const r = D.passReward(l);
+      if (r) return "הבא · רמה " + l + ": " + (r.weapon ? "🪄 נשק" : r.gems ? ("💎" + r.gems) : ("🪙" + r.coins));
+    }
+    return "";
+  }
   function refreshHome() {
     const p = D.profile();
     const lvl = D.levelFromXp(p.xp);
@@ -652,9 +672,10 @@
     el.homeMascot.src = D.SPECIES[0].uri;
     el.homeBest.textContent = D.bestScore();
     el.homeCoins.textContent = p.coins;
+    el.homeGems.textContent = p.gems;
     el.playerLevel.textContent = lvl;
     el.passLevel.textContent = lvl;
-    el.passXp.textContent = `${p.xp - cur} / ${next - cur} XP`;
+    el.passNext.textContent = passNextText(lvl);
     el.passFill.style.width = (frac * 100) + "%";
     el.lvlRing.style.setProperty("--xp", (frac * 100) + "%");
     el.playerNameTop.textContent = localStorage.getItem("pangogo.name") || "שחקן";
@@ -662,7 +683,40 @@
     el.missionText.textContent = m.text + (m.done ? " ✅" : ` (${Math.min(m.progress, m.target)}/${m.target})`);
     el.missionReward.textContent = "+" + m.reward;
     renderDexStrip();
+    renderShop();
     renderTop3Into(el.homeTop3);
+  }
+
+  function renderShop() {
+    const p = D.profile();
+    const rar = { common: "#5b8cff", uncommon: "#34d6c8", rare: "#b06bff", legendary: "#ffcf4d" };
+    let html = `<div class="shop-sec">חיזוקים <small>(יהלומים)</small></div><div class="shop-row">`;
+    for (const id of Object.keys(D.BOOSTS)) {
+      const b = D.BOOSTS[id], armed = p.armed[id];
+      html += `<div class="shop-card boost"><div class="si">${b.icon}</div><div class="sn">${b.name}</div><div class="sd">${b.desc}</div>` +
+        `<button class="buy ${armed ? "armed" : ""}" data-boost="${id}">${armed ? "מצויד ✓" : ("💎" + b.gems)}</button></div>`;
+    }
+    html += `</div><div class="shop-sec">נשקים <small>(מטבעות)</small></div><div class="shop-grid">`;
+    D.WEAPONS.filter((w) => w.cost > 0).forEach((w) => {
+      const owned = D.ownsWeapon(w.id);
+      html += `<div class="shop-card" style="border-color:${rar[w.rarity] || "#cfe0ff"}"><img src="${w.uri}" alt="">` +
+        `<div class="sn">${w.name}</div>` +
+        `<button class="buy ${owned ? "owned" : ""}" data-weapon="${w.id}">${owned ? "✓ ברשותך" : ("🪙" + w.cost)}</button></div>`;
+    });
+    html += `</div>`;
+    el.shop.innerHTML = html;
+    el.shop.querySelectorAll("[data-boost]").forEach((btn) => btn.addEventListener("click", () => {
+      const r = D.buyBoost(btn.dataset.boost);
+      if (r === "bought") { A.sfx.coin(); toast("חיזוק מצויד לסבב הבא! ✨"); }
+      else if (r === "poor") { A.sfx.miss(); toast("חסרים יהלומים 💎 — תפוס אגדיים!"); }
+      refreshHome();
+    }));
+    el.shop.querySelectorAll("[data-weapon]").forEach((btn) => btn.addEventListener("click", () => {
+      const r = D.buyWeapon(btn.dataset.weapon);
+      if (r === "bought") { A.sfx.coin(); toast("נפתח! 🎉"); }
+      else if (r === "poor") { A.sfx.miss(); toast("חסרים מטבעות 🪙"); }
+      refreshHome();
+    }));
   }
 
   function showTab(name) {
@@ -694,6 +748,10 @@
     document.querySelectorAll("#home-screen .tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
     document.getElementById("to-weapons")?.addEventListener("click", () => showTab("weapons"));
     document.getElementById("to-dex")?.addEventListener("click", () => showTab("dex"));
+    el.soundBtn.addEventListener("click", () => {
+      const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
+      el.soundBtn.querySelector(".ic").textContent = s.sound ? "🔊" : "🔇";
+    });
     document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden && S.running) ensureCamera(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
     el.soundBtn.querySelector(".ic").textContent = D.settings().sound ? "🔊" : "🔇";
