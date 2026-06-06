@@ -386,12 +386,13 @@
   }
   function catchSequence(c) {
     c.frozen = true; clearTimeout(c.life);
-    const x = c.sx, y = c.sy; shake(6, 160); hitStop(70);
-    const wb = document.createElement("div"); wb.className = "ball wobble";
-    const im = document.createElement("img"); im.src = D.BALL_URI; wb.appendChild(im);
-    wb.style.transform = `translate(${x}px,${y}px) scale(.85)`; el.balllayer.appendChild(wb);
-    c.node.style.opacity = "0"; A.sfx.wobble(); later(() => A.sfx.wobble(), 250);
-    later(() => { wb.remove(); finishCatch(c, x, y); S.ballActive = false; }, 600);
+    const x = c.sx, y = c.sy, src = c.img.src;
+    shake(7, 170); hitStop(80);
+    c.node.style.display = "none";
+    sliceFx(x, y, src, c.node.className);   // Fruit-Ninja style chop
+    A.sfx.throw();
+    finishCatch(c, x, y);
+    S.ballActive = false;
   }
   function finishCatch(c, x, y) {
     const sp = c.sp; removeCreature(c, false);
@@ -458,6 +459,19 @@
   function shake(m, d) { S.shakeMag = m; S.shakeUntil = performance.now() + d; }
   function hitStop(ms) { S.timeScale = 0; later(() => { S.timeScale = 1; }, ms); }
   function flash() { const f = document.createElement("div"); f.className = "flash"; el.fx.appendChild(f); later(() => f.remove(), 420); }
+  // Fruit-Ninja style: split the creature image into two halves that fly apart + a slash streak
+  function sliceFx(x, y, src, cls) {
+    const w = document.createElement("div");
+    w.className = "slice " + (cls || "").replace("target", "").trim();
+    w.style.left = x + "px"; w.style.top = y + "px";
+    const ang = (Math.random() * 50 - 25).toFixed(0);
+    w.innerHTML =
+      `<div class="half l"><img src="${src}"></div>` +
+      `<div class="half r"><img src="${src}"></div>` +
+      `<div class="slash" style="transform:rotate(${ang}deg)"></div>`;
+    el.fx.appendChild(w);
+    later(() => w.remove(), 650);
+  }
   function ringFx(x, y, r) {
     const e = document.createElement("div"); e.className = "impact";
     e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = e.style.height = (2 * r) + "px";
