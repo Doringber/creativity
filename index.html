@@ -48,31 +48,59 @@
 
   <!-- ===================== HOME ===================== -->
   <section id="home-screen" class="overlay home">
-    <div class="home-card">
-      <img id="home-mascot" class="home-mascot" alt="Pango" />
-      <h1 class="title">Pango <span class="title-accent">GO</span></h1>
-      <p class="tagline">חברי פנגו התפזרו בשכונה — צא לתפוס את כולם!</p>
-
-      <div class="mission-chip" id="mission-chip">
-        <span>🎯</span><span id="mission-text">משימה יומית</span><b id="mission-reward">+60</b>
-      </div>
-
-      <button id="play-btn" class="btn btn-primary big">שחק ▶</button>
-      <p class="howline">🧭 הזז את הטלפון לחיפוש · גרור וזרוק כדי לתפוס</p>
-
-      <div class="sec-title">🗡️ הנשק שלך <small>— בחר/פתח עם מטבעות</small></div>
-      <div class="weap-bar" id="weap-bar"></div>
-
-      <div class="sec-title">📒 פנגודקס</div>
-      <div class="dex-strip" id="dex-strip"></div>
-
-      <div class="home-foot">
-        <div class="foot-stat"><b id="home-best">0</b><small>שיא</small></div>
-        <div class="foot-stat"><b id="home-level">1</b><small>שלב</small></div>
-        <div class="foot-stat"><b id="home-coins">0</b><small>🪙</small></div>
-        <button id="sound-btn" class="foot-stat foot-btn">🔊</button>
+    <!-- top bar: level + currencies -->
+    <div class="hbar">
+      <div class="lvlchip"><span class="ring" id="lvl-ring"><b id="player-level">1</b></span><span class="pname" id="player-name-top">שחקן</span></div>
+      <div class="curbar">
+        <span class="cur gold">🪙 <b id="home-coins">0</b></span>
+        <span class="cur tro">🏆 <b id="home-best">0</b></span>
       </div>
     </div>
+
+    <!-- Pango Pass (player XP progression) -->
+    <div class="passbar">
+      <div class="prow"><span>🎟️ פנגו-פס · רמה <b id="pass-level">1</b></span><span id="pass-xp">0 / 100 XP</span></div>
+      <div class="pbar"><i id="pass-fill"></i></div>
+    </div>
+
+    <!-- tab content -->
+    <div class="tabwrap">
+      <div class="tabpane act" data-pane="home">
+        <h1 class="title">Pango <span class="title-accent">GO</span></h1>
+        <div class="mission-chip" id="mission-chip"><span>🎯</span><span id="mission-text">משימה יומית</span><b id="mission-reward">+60</b></div>
+        <div class="hero-wrap"><div class="podium"></div><img id="home-mascot" class="hero" alt="Pango" /></div>
+        <div class="playrow">
+          <button class="icbtn" id="to-weapons" title="נשקים">🪄</button>
+          <button id="play-btn" class="btn btn-primary big">שחק</button>
+          <button class="icbtn" id="to-dex" title="פנגודקס">📒</button>
+        </div>
+        <p class="howline">🧭 הזז את הטלפון · גרור וזרוק לתפיסה</p>
+      </div>
+
+      <div class="tabpane" data-pane="weapons">
+        <h2 class="panetitle">🪄 הנשק שלך <small>— בחר/פתח עם מטבעות</small></h2>
+        <div class="weap-bar" id="weap-bar"></div>
+      </div>
+
+      <div class="tabpane" data-pane="dex">
+        <h2 class="panetitle">📒 פנגודקס</h2>
+        <div class="dex-grid" id="dex-strip"></div>
+      </div>
+
+      <div class="tabpane" data-pane="board">
+        <h2 class="panetitle">🏆 דירוג</h2>
+        <ol id="home-top3" class="top3"></ol>
+      </div>
+    </div>
+
+    <!-- bottom tab bar -->
+    <nav class="tabbar">
+      <button class="tab" data-tab="weapons"><span class="ic">🪄</span>נשקים</button>
+      <button class="tab" data-tab="dex"><span class="ic">📒</span>פנגודקס</button>
+      <button class="tab act" data-tab="home"><span class="ic">🏠</span>בית</button>
+      <button class="tab" data-tab="board"><span class="ic">🏆</span>דירוג</button>
+      <button class="tab" id="sound-btn" data-tab="sound"><span class="ic">🔊</span>סאונד</button>
+    </nav>
   </section>
 
   <!-- ===================== END ===================== -->
