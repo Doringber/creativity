@@ -63,6 +63,8 @@ ${eye}
     SPECIES_ACTIVE = [pango, ...monsters];
     byId = Object.fromEntries(SPECIES_ACTIVE.map((s) => [s.id, s]));
   }
+  // multiple Pango poses for the Home hero to cycle through
+  const HERO_POSES = ["pango_hero", "pango_p1", "pango_p2", "pango_p3", "pango_p4", "pango_p5"].map((n) => "assets/sprites/" + n + ".png");
 
   // the "fine" hazard + the throwing ball as data URIs
   const FINE_URI = "data:image/svg+xml," + encodeURIComponent(
@@ -239,7 +241,7 @@ ${eye}
   function saveSettings(s) { save(K.settings, s); }
 
   return {
-    SPECIES: SPECIES_ACTIVE, byId, FINE_URI, BALL_URI,
+    SPECIES: SPECIES_ACTIVE, byId, FINE_URI, BALL_URI, HERO_POSES,
     WEAPONS, selectedWeapon, ownsWeapon, selectWeapon, buyWeapon,
     BOOSTS, buyBoost, consumeArmed,
     PASS, passReward, claimPass,
