@@ -270,3 +270,18 @@ body.fever .fever-fill{background:linear-gradient(90deg,var(--gold),#ff7a2a,var(
 .shop-card .buy{margin-top:4px;border:none;border-radius:12px;padding:8px 12px;font-weight:800;font-family:inherit;cursor:pointer;font-size:14px;
   background:linear-gradient(180deg,#ffe23f,#ffb300);color:#5a3c00;border-bottom:4px solid #c98700;}
 .shop-card .buy.owned,.shop-card .buy.armed{background:#2a9d62;color:#fff;border-bottom-color:#1c6e44;}
+
+/* ----- Fruit-Ninja slice effect ----- */
+.slice{position:absolute;width:96px;height:96px;margin:-48px 0 0 -48px;z-index:31;pointer-events:none;
+  filter:drop-shadow(0 6px 8px rgba(8,30,80,.4));}
+.slice .half{position:absolute;inset:0;}
+.slice .half img{width:96px;height:96px;object-fit:contain;display:block;}
+.slice .half.l{clip-path:inset(0 50% 0 0);animation:sliceL .55s cubic-bezier(.2,.7,.3,1) forwards;}
+.slice .half.r{clip-path:inset(0 0 0 50%);animation:sliceR .55s cubic-bezier(.2,.7,.3,1) forwards;}
+@keyframes sliceL{0%{transform:translate(0,0) rotate(0);}100%{transform:translate(-44px,22px) rotate(-34deg);opacity:0;}}
+@keyframes sliceR{0%{transform:translate(0,0) rotate(0);}100%{transform:translate(44px,26px) rotate(34deg);opacity:0;}}
+.slice .slash{position:absolute;top:46%;left:-12%;width:124%;height:6px;border-radius:3px;
+  background:linear-gradient(90deg,transparent,#fff 45%,#fff 55%,transparent);box-shadow:0 0 14px #fff;
+  transform-origin:50% 50%;animation:slashfx .32s ease-out forwards;}
+@keyframes slashfx{0%{opacity:0;transform:scaleX(.15);}35%{opacity:1;}100%{opacity:0;transform:scaleX(1);}}
+.slice.legendary .slash{background:linear-gradient(90deg,transparent,#ffe07a 45%,#fff 55%,transparent);box-shadow:0 0 16px var(--gold);}
