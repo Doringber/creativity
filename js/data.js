@@ -128,12 +128,52 @@ ${eye}
 
   function profile() {
     const p = load(K.profile, {});
-    p.xp = p.xp || 0; p.coins = p.coins || 0; p.totalCaught = p.totalCaught || 0;
+    p.xp = p.xp || 0; p.coins = p.coins || 0; p.gems = p.gems || 0; p.totalCaught = p.totalCaught || 0;
     p.owned = p.owned || ["ball", "pan"];
     p.weapon = p.weapon && p.owned.includes(p.weapon) ? p.weapon : "ball";
+    p.armed = p.armed || { lure: false, doubler: false };
+    p.passClaimed = p.passClaimed || 1;
     return p;
   }
   function saveProfile(p) { save(K.profile, p); }
+
+  // ---- boosts (bought with gems, armed for the next round) ----
+  const BOOSTS = {
+    lure:    { name: "מגה פיתיון", icon: "🧲", gems: 8,  desc: "סבב הבא: יותר נדירים ואגדיים" },
+    doubler: { name: "מכפיל מטבעות", icon: "💰", gems: 6, desc: "סבב הבא: ×2 מטבעות" },
+  };
+  function buyBoost(id) {
+    const p = profile(), b = BOOSTS[id];
+    if (!b) return "no";
+    if (p.armed[id]) return "armed";
+    if (p.gems < b.gems) return "poor";
+    p.gems -= b.gems; p.armed[id] = true; saveProfile(p); return "bought";
+  }
+  function consumeArmed() {           // called when a round starts
+    const p = profile(); const a = { ...p.armed };
+    p.armed = { lure: false, doubler: false }; saveProfile(p); return a;
+  }
+
+  // ---- Pango Pass: a reward per player level ----
+  const PASS = {
+    2: { coins: 60 }, 3: { gems: 3 }, 4: { weapon: "torch" }, 5: { coins: 120 },
+    6: { gems: 4 }, 7: { weapon: "flare" }, 8: { coins: 200 }, 9: { gems: 6 },
+    10: { weapon: "trap" }, 12: { gems: 8 }, 15: { gems: 12 },
+  };
+  function passReward(lvl) { return PASS[lvl]; }
+  // grant every unclaimed reward up to the current level; returns a list of grants
+  function claimPass(currentLevel) {
+    const p = profile(); const got = [];
+    for (let l = p.passClaimed + 1; l <= currentLevel; l++) {
+      const r = PASS[l]; if (!r) continue;
+      if (r.coins) p.coins += r.coins;
+      if (r.gems) p.gems += r.gems;
+      if (r.weapon && !p.owned.includes(r.weapon)) p.owned.push(r.weapon);
+      got.push({ level: l, ...r });
+    }
+    p.passClaimed = Math.max(p.passClaimed, currentLevel);
+    saveProfile(p); return got;
+  }
 
   // one-time welcome gift so players can try a weapon or two right away
   (function welcomeGift() {
@@ -199,6 +239,8 @@ ${eye}
   return {
     SPECIES: SPECIES_ACTIVE, byId, FINE_URI, BALL_URI,
     WEAPONS, selectedWeapon, ownsWeapon, selectWeapon, buyWeapon,
+    BOOSTS, buyBoost, consumeArmed,
+    PASS, passReward, claimPass,
     profile, saveProfile, levelFromXp, xpForLevel,
     dex, discover,
     board, addScore, bestScore, clearBoard,
