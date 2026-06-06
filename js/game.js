@@ -129,6 +129,8 @@
     for (const sp of pool) if ((r -= wt(sp)) <= 0) return sp;
     return pool[0];
   }
+  // the blue Pango spawns in a random pose; others use their single sprite
+  function poseFor(sp) { return sp.id === "azure" ? D.HERO_POSES[(Math.random() * D.HERO_POSES.length) | 0] : sp.uri; }
   function spawn() {
     if (!S.running || S.paused) return;
     const dd = diff();
@@ -140,7 +142,8 @@
     const node = document.createElement("div");
     node.className = "target " + (hazard ? "bomb" : (sp.rarity === "legendary" ? "legendary" : sp.rarity === "rare" ? "rare" : ""));
     const sprite = document.createElement("span"); sprite.className = "sprite";
-    const img = document.createElement("img"); img.src = hazard ? D.FINE_URI : sp.uri; sprite.appendChild(img);
+    const poseUri = hazard ? D.FINE_URI : poseFor(sp);
+    const img = document.createElement("img"); img.src = poseUri; sprite.appendChild(img);
     node.appendChild(sprite);
     const idle = ["hop", "bobwig", "breathe", "sway", "jelly"][(Math.random() * 5) | 0];
     const dur = rand(0.5, 0.95).toFixed(2);
@@ -149,7 +152,7 @@
 
     const sm = dd.speedMul;
     const c = {
-      sp, hazard, node, sprite, img, alive: true, frozen: false, behavior,
+      sp, hazard, node, sprite, img, poseUri, alive: true, frozen: false, behavior,
       yaw: ((S.view.yaw + rand(-dd.spread, dd.spread)) % 360 + 360) % 360,
       pitch: clamp(rand(-dd.spread * 0.32, dd.spread * 0.32), -28, 28),
       vyaw: rand(-18, 18) * sm, vpitch: rand(-9, 9) * sm,
@@ -218,7 +221,7 @@
       if (dd.aimLock && !c.hazard && Math.abs(c.dy) < 7 && Math.abs(c.dp) < 7) {
         if (!c.aimSince) c.aimSince = now; else if (now - c.aimSince > AIM_LOCK_FLEE_MS) { scare(c); c.aimSince = 0; }
       } else c.aimSince = 0;
-      if (now > c.blinkAt) { if (!c.hazard) { c.img.src = c.sp.uriBlink; later(() => { if (c.alive) c.img.src = c.sp.uri; }, 130); } c.blinkAt = now + rand(2500, 6000); }
+      if (now > c.blinkAt) { if (!c.hazard && c.sp.uriBlink && c.sp.uriBlink !== c.poseUri) { c.img.src = c.sp.uriBlink; later(() => { if (c.alive) c.img.src = c.poseUri; }, 130); } c.blinkAt = now + rand(2500, 6000); }
       c._op = op;
     });
   }
@@ -407,7 +410,7 @@
     const hazard = Math.random() < 0.16;
     const sp = hazard ? null : pickSpecies();
     const node = document.createElement("div"); node.className = "fruit " + (hazard ? "bomb" : (sp.rarity === "legendary" ? "legendary" : sp.rarity === "rare" ? "rare" : ""));
-    const img = document.createElement("img"); img.src = hazard ? D.FINE_URI : sp.uri; node.appendChild(img);
+    const img = document.createElement("img"); img.src = hazard ? D.FINE_URI : poseFor(sp); node.appendChild(img);
     el.playfield.appendChild(node);
     const f = {
       sp, hazard, node, img, sliced: false,
