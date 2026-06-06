@@ -16,6 +16,13 @@
   const FEVER_MAX = 100, FEVER_DECAY = 4, FEVER_SECONDS = 8, FEVER_GRACE_MS = 1600;
   const AIM_LOCK_FLEE_MS = 1600;
 
+  // game modes
+  const MODES = {
+    hunt:   { secs: 70, name: "ציד",   pointMul: 1, spawnMul: 1,   how: "🧭 הזז את הטלפון · גרור וזרוק לתפיסה" },
+    frenzy: { secs: 30, name: "טירוף", pointMul: 2, spawnMul: 0.5, lure: true, how: "🔥 טירוף! ×2 נקודות · 30 שניות" },
+    slice:  { secs: 60, name: "שיסוף", pointMul: 1, how: "🍉 החלק אצבע כדי לחתוך — היזהר מהקנסות!" },
+  };
+
   const S = {
     running: false, paused: false,
     score: 0, caught: 0, combo: 1, bestCombo: 1,
@@ -27,6 +34,8 @@
     ballActive: false, ball: null,
     creatures: new Set(),
     traps: new Set(),
+    fruits: new Set(),
+    mode: "hunt", pointMul: 1,
     view: { yaw: 0, pitch: 0, tYaw: 0, tPitch: 0, hasGyro: false },
     pointer: null, timeouts: new Set(),
   };
@@ -38,7 +47,7 @@
    "fever feverFill weaponBtn weaponImg homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
    "homeBest homeCoins homeGems soundBtn playerLevel playerNameTop lvlRing passLevel passNext passFill homeTop3 shop " +
    "endScreen endEmoji finalScore eCaught eCombo eCoins " +
-   "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn top3 toast")
+   "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn challengeBtn vsBanner vsResult howline top3 toast")
     .split(" ").forEach((k) => { el[k] = $(k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())); });
 
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -162,8 +171,15 @@
   function frame(now) {
     let dt = Math.min(0.05, (now - (S.lastFrame || now)) / 1000); S.lastFrame = now;
     if (S.running && !S.paused) {
-      updateView(dt); updateFever(now, dt);
-      updateCreatures(now, dt * S.timeScale); updateBall(now, dt); updateTraps(now); render(now);
+      updateFever(now, dt);
+      if (S.mode === "slice") {
+        sliceUpdate(now, dt * S.timeScale);
+        let tx = 0, ty = 0; if (now < S.shakeUntil) { const m = S.shakeMag * ((S.shakeUntil - now) / 260); tx = (Math.random() * 2 - 1) * m; ty = (Math.random() * 2 - 1) * m; }
+        el.stage.style.transform = `translate(${tx}px,${ty}px)`;
+      } else {
+        updateView(dt);
+        updateCreatures(now, dt * S.timeScale); updateBall(now, dt); updateTraps(now); render(now);
+      }
     }
     S.rafId = requestAnimationFrame(frame);
   }
@@ -378,6 +394,67 @@
     });
   }
   function clearTraps() { S.traps.forEach((tr) => { clearTimeout(tr.life); tr.node.remove(); }); S.traps.clear(); }
+
+  // ====================== SLICE MODE (Fruit-Ninja) ======================
+  const GRAV = 1400;   // px/s^2
+  function spawnFruitWave() {
+    if (!S.running || S.paused || S.mode !== "slice") return;
+    const n = 1 + (Math.random() < 0.5 ? 1 : 0) + (S.level > 2 && Math.random() < 0.4 ? 1 : 0);
+    for (let i = 0; i < n; i++) later(() => tossFruit(), i * 160);
+  }
+  function tossFruit() {
+    if (!S.running || S.paused) return;
+    const hazard = Math.random() < 0.16;
+    const sp = hazard ? null : pickSpecies();
+    const node = document.createElement("div"); node.className = "fruit " + (hazard ? "bomb" : (sp.rarity === "legendary" ? "legendary" : sp.rarity === "rare" ? "rare" : ""));
+    const img = document.createElement("img"); img.src = hazard ? D.FINE_URI : sp.uri; node.appendChild(img);
+    el.playfield.appendChild(node);
+    const f = {
+      sp, hazard, node, img, sliced: false,
+      x: rand(W * 0.15, W * 0.85), y: H + 70,
+      vx: rand(-90, 90), vy: -rand(1020, 1240),   // launch up
+      rot: 0, vrot: rand(-180, 180),
+    };
+    S.fruits.add(f);
+  }
+  function sliceUpdate(now, dt) {
+    S.fruits.forEach((f) => {
+      f.vy += GRAV * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vrot * dt;
+      if (f.y > H + 90) {            // fell off the bottom uncaught
+        if (!f.hazard && !f.sliced) S.combo = 1;   // missing a creature breaks the combo
+        f.node.remove(); S.fruits.delete(f);
+      } else {
+        f.node.style.transform = `translate(${f.x}px, ${f.y}px) rotate(${f.rot}deg)`;
+      }
+    });
+  }
+  function sliceAt(px, py) {
+    if (S.mode !== "slice") return;
+    S.fruits.forEach((f) => {
+      if (f.sliced) return;
+      if (Math.hypot(f.x - px, f.y - py) < 56) {
+        f.sliced = true; f.node.remove(); S.fruits.delete(f);
+        if (f.hazard) {
+          S.score = Math.max(0, S.score - 25); S.combo = 1;
+          A.sfx.fine(); vibrate([60, 40, 60]); flash(); shake(14, 300);
+          burst(f.x, f.y, "-25", "bad"); particles(f.x, f.y, "#ff4d5e", 14); refreshHud();
+        } else {
+          sliceFx(f.x, f.y, f.img.src, f.node.className);
+          awardCatch(f.sp, f.x, f.y);
+        }
+      }
+    });
+  }
+  let bladePrev = null;
+  function bladePoint(x, y) {
+    // sample a few points between the last and current for fast swipes
+    if (bladePrev) { const steps = 3; for (let i = 1; i <= steps; i++) sliceAt(bladePrev.x + (x - bladePrev.x) * i / steps, bladePrev.y + (y - bladePrev.y) * i / steps); }
+    else sliceAt(x, y);
+    bladePrev = { x, y };
+    const d = document.createElement("div"); d.className = "blade-dot"; d.style.left = x + "px"; d.style.top = y + "px";
+    el.fx.appendChild(d); later(() => d.remove(), 220);
+  }
+  function clearFruits() { S.fruits.forEach((f) => f.node.remove()); S.fruits.clear(); bladePrev = null; }
   function hitHazard(c) {
     const x = c.sx, y = c.sy; removeCreature(c, false);
     S.score = Math.max(0, S.score - 25); S.combo = 1; S.fever = Math.max(0, S.fever - 25); updateCombo();
@@ -394,14 +471,14 @@
     finishCatch(c, x, y);
     S.ballActive = false;
   }
-  function finishCatch(c, x, y) {
-    const sp = c.sp; removeCreature(c, false);
+  function finishCatch(c, x, y) { const sp = c.sp; removeCreature(c, false); awardCatch(sp, x, y); }
+  function awardCatch(sp, x, y) {
     const now = performance.now();
     S.combo = (now - S.lastCatchAt < COMBO_WINDOW_MS) ? Math.min(S.combo + 1, 9) : 1;
     S.lastCatchAt = now; S.bestCombo = Math.max(S.bestCombo, S.combo);
 
-    const mult = (S.feverMode ? 2 : 1);
-    const coinMult = mult * (S.doublerActive ? 2 : 1);
+    const mult = (S.feverMode ? 2 : 1) * (S.pointMul || 1);
+    const coinMult = (S.feverMode ? 2 : 1) * (S.doublerActive ? 2 : 1);
     const gained = sp.points * S.combo * mult;
     S.score += gained; S.caught += 1;
     S.coinsRun += Math.max(1, Math.round(sp.points / 5)) * coinMult;
@@ -530,10 +607,12 @@
       if (!S.running || S.paused) return;
       const t = e.target;
       if (t && t.closest && t.closest(".hud,.weapon-btn,.fever,.overlay")) return; // taps on UI aren't throws
+      if (S.mode === "slice") { bladePrev = null; bladePoint(e.clientX, e.clientY); S.slicing = true; return; }
       S.pointer = { sx: e.clientX, sy: e.clientY, moved: 0, look: false };
       drawAim(e.clientX, e.clientY);   // always preview the throw arc on press
     });
     addEventListener("pointermove", (e) => {
+      if (S.mode === "slice") { if (S.slicing && S.running && !S.paused) bladePoint(e.clientX, e.clientY); return; }
       const p = S.pointer; if (!p || !S.running || S.paused) return;
       p.moved = Math.hypot(e.clientX - p.sx, e.clientY - p.sy);
       if (!S.view.hasGyro && p.moved > 12) {
@@ -546,6 +625,7 @@
       }
     });
     addEventListener("pointerup", (e) => {
+      if (S.mode === "slice") { S.slicing = false; bladePrev = null; return; }
       const p = S.pointer; S.pointer = null; clearAim();
       if (!p || !S.running || S.paused) return;
       if (p.look) return;
@@ -555,30 +635,39 @@
   }
 
   // ---------- flow ----------
-  function startGame() {
+  function startGame(mode) {
+    mode = mode || S.mode || "hunt";
+    const cfg = MODES[mode] || MODES.hunt;
     A.init(); if (D.settings().sound) A.startMusic();
-    startCamera(); startGyro();   // (re)acquire camera+sensors on every start, incl. "play again"
-    Object.assign(S, { running: true, paused: false, score: 0, caught: 0, combo: 1, bestCombo: 1, level: 1, levelProgress: 0,
-      timeLeft: ROUND_SECONDS, lastCatchAt: 0, coinsRun: 0, xpRun: 0, gemsRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
+    startCamera(); if (mode !== "slice") startGyro();   // slice uses swipes, not the gyro
+    Object.assign(S, { running: true, paused: false, mode, pointMul: cfg.pointMul || 1, score: 0, caught: 0, combo: 1, bestCombo: 1, level: 1, levelProgress: 0,
+      timeLeft: cfg.secs, lastCatchAt: 0, coinsRun: 0, xpRun: 0, gemsRun: 0, newNames: [], fever: 0, feverMode: false, timeScale: 1, ballActive: false, ball: null });
     const armed = D.consumeArmed();   // boosts bought in the shop apply this round
-    S.lureActive = armed.lure; S.doublerActive = armed.doubler;
+    S.lureActive = armed.lure || !!cfg.lure; S.doublerActive = armed.doubler;
     if (armed.lure || armed.doubler) later(() => toast((armed.lure ? "🧲 פיתיון פעיל " : "") + (armed.doubler ? "💰 ×2 מטבעות" : "")), 3300);
-    clearCreatures(); clearTraps(); clearLaters();
+    clearCreatures(); clearTraps(); clearFruits(); clearLaters();
     [el.balllayer, el.fx, el.radar, el.aim].forEach((n) => n.innerHTML = "");
     document.body.classList.remove("fever");
+    document.body.classList.toggle("slice-mode", mode === "slice");
     document.body.classList.add("playing");
     [el.homeScreen, el.endScreen].forEach(hide);
-    [el.hud, el.fever, el.weaponBtn].forEach(show);
+    [el.hud, el.fever].forEach(show);
+    el.weaponBtn.classList.toggle("hidden", mode === "slice");   // no weapon in slice mode
     el.comboPill.classList.add("hidden");
-    refreshWeaponBtn();
+    if (mode !== "slice") refreshWeaponBtn();
     refreshHud(); el.feverFill.style.width = "0%";
     if (!S.rafId) { S.lastFrame = performance.now(); S.rafId = requestAnimationFrame(frame); }
-    countdown(() => { restartSpawn(); S.tickTimer = setInterval(tick, 1000); toast("🧭 הזז את הטלפון כדי לחפש"); });
+    countdown(() => {
+      S.tickTimer = setInterval(tick, 1000);
+      if (mode === "slice") { S.fruitTimer = setInterval(spawnFruitWave, 900); spawnFruitWave(); toast("🍉 החלק כדי לחתוך!"); }
+      else { restartSpawn(); toast(cfg.lure ? "🔥 טירוף!" : "🧭 הזז את הטלפון כדי לחפש"); }
+    });
   }
   function tick() { if (S.paused) return; S.timeLeft--; refreshHud(); if (S.timeLeft <= 5 && S.timeLeft > 0) A.sfx.count(true); if (S.timeLeft <= 0) endGame(); }
 
   function endGame() {
-    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearCreatures(); clearTraps(); clearLaters();
+    S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.fruitTimer); clearCreatures(); clearTraps(); clearFruits(); clearLaters();
+    document.body.classList.remove("slice-mode");
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
     document.body.classList.remove("playing", "fever");
     [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
@@ -603,6 +692,13 @@
     el.eCaught.textContent = S.caught; el.eCombo.textContent = "x" + S.bestCombo; el.eCoins.textContent = S.coinsRun;
     el.newRecord.classList.toggle("hidden", !record);
     if (record) vibrate([40, 40, 40, 40, 120]);
+    // friend challenge result
+    if (S.challenge) {
+      const won = S.score > S.challenge.score;
+      el.vsResult.classList.remove("hidden");
+      el.vsResult.classList.toggle("done", won);
+      el.vsResult.textContent = won ? `🏅 ניצחת את ${S.challenge.name}! (${S.challenge.score})` : `😅 ${S.challenge.name}: ${S.challenge.score} — נסה שוב!`;
+    } else el.vsResult.classList.add("hidden");
     el.newSpecies.classList.toggle("hidden", S.newNames.length === 0);
     if (S.newNames.length) el.newSpecies.textContent = "🆕 מינים חדשים: " + S.newNames.join(", ");
     el.missionDone.classList.toggle("hidden", !missionJustDone);
@@ -743,6 +839,34 @@
     document.querySelectorAll("#home-screen .tab").forEach((t) => t.classList.toggle("act", t.dataset.tab === name));
   }
 
+  function setMode(mode) {
+    if (!MODES[mode]) return;
+    S.mode = mode;
+    const st = D.settings(); st.mode = mode; D.saveSettings(st);
+    document.querySelectorAll(".modechip").forEach((c) => c.classList.toggle("act", c.dataset.mode === mode));
+    if (el.howline) el.howline.textContent = MODES[mode].how;
+  }
+
+  // ---------- friend challenge (no server — score target via a share link) ----------
+  function parseChallenge() {
+    const u = new URLSearchParams(location.search);
+    const vs = u.get("vs");
+    if (!vs) return;
+    S.challenge = { name: vs.slice(0, 16), score: Math.max(0, parseInt(u.get("s")) || 0), mode: MODES[u.get("m")] ? u.get("m") : "hunt" };
+    setMode(S.challenge.mode);
+    show(el.vsBanner);
+    el.vsBanner.innerHTML = `⚔️ <b>${esc(S.challenge.name)}</b> מאתגר אותך ב${MODES[S.challenge.mode].name}: <b>${S.challenge.score}</b> — תנצח?`;
+  }
+  function shareChallenge() {
+    const name = (localStorage.getItem("pangogo.name") || "שחקן").slice(0, 16);
+    const base = location.origin + location.pathname;
+    const url = `${base}?vs=${encodeURIComponent(name)}&s=${S.score}&m=${S.mode}`;
+    const text = `🐾 ${name} מאתגר אותך ב-Pango GO! נצח ${S.score} נקודות:`;
+    if (navigator.share) { navigator.share({ title: "Pango GO", text, url }).catch(() => {}); }
+    else if (navigator.clipboard) { navigator.clipboard.writeText(url).then(() => toast("הקישור הועתק! שלח לחבר 📋")).catch(() => toast(url)); }
+    else toast(url);
+  }
+
   // ---------- wire up ----------
   function goHome() { hide(el.endScreen); refreshHome(); showTab("home"); show(el.homeScreen); }
 
@@ -762,6 +886,11 @@
     document.querySelectorAll("#home-screen .tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
     document.getElementById("to-weapons")?.addEventListener("click", () => showTab("weapons"));
     document.getElementById("to-dex")?.addEventListener("click", () => showTab("dex"));
+    // mode picker
+    document.querySelectorAll(".modechip").forEach((c) => c.addEventListener("click", () => setMode(c.dataset.mode)));
+    el.challengeBtn.addEventListener("click", shareChallenge);
+    setMode(D.settings().mode || "hunt");
+    parseChallenge();
     el.soundBtn.addEventListener("click", () => {
       const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
       el.soundBtn.querySelector(".ic").textContent = s.sound ? "🔊" : "🔇";

@@ -285,3 +285,22 @@ body.fever .fever-fill{background:linear-gradient(90deg,var(--gold),#ff7a2a,var(
   transform-origin:50% 50%;animation:slashfx .32s ease-out forwards;}
 @keyframes slashfx{0%{opacity:0;transform:scaleX(.15);}35%{opacity:1;}100%{opacity:0;transform:scaleX(1);}}
 .slice.legendary .slash{background:linear-gradient(90deg,transparent,#ffe07a 45%,#fff 55%,transparent);box-shadow:0 0 16px var(--gold);}
+
+/* ----- mode picker + challenge banners + blade ----- */
+.modepick{display:flex;gap:8px;justify-content:center;margin:8px 0 2px;}
+.modechip{display:flex;flex-direction:column;align-items:center;gap:1px;background:rgba(7,12,40,.4);border:2px solid rgba(255,255,255,.25);
+  color:#fff;border-radius:14px;padding:7px 14px;font-family:inherit;font-weight:800;font-size:12.5px;cursor:pointer;}
+.modechip span{font-size:20px;}
+.modechip.act{background:#fff;color:#7a3df0;border-color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.25);}
+.vs-banner{background:rgba(7,12,40,.5);border:2px solid #ffe07a;color:#fff;border-radius:14px;padding:9px 12px;margin:8px 0;font-size:13.5px;}
+.vs-banner b{color:#ffe07a;}
+.banner#vs-result{background:#fff6da;color:#9a6b00;} .banner#vs-result.done{background:#eafaf0;color:#0d8a4e;}
+.blade-dot{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;pointer-events:none;z-index:30;
+  background:radial-gradient(circle,#fff,rgba(255,255,255,.1));box-shadow:0 0 12px #fff,0 0 22px #5fd0ff;animation:fade .22s ease-out forwards;}
+/* slice-mode fruit (tossed creatures) */
+.fruit{position:absolute;top:0;left:0;width:96px;height:96px;margin:-48px 0 0 -48px;pointer-events:none;z-index:6;
+  filter:drop-shadow(0 8px 9px rgba(8,30,80,.45));}
+.fruit img{width:100%;height:100%;object-fit:contain;display:block;}
+.fruit.rare{filter:drop-shadow(0 0 16px #fff) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
+.fruit.legendary{filter:drop-shadow(0 0 22px var(--gold)) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
+.fruit.bomb{filter:drop-shadow(0 0 14px var(--bad)) drop-shadow(0 8px 9px rgba(8,30,80,.5));}
