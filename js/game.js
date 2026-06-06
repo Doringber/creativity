@@ -36,7 +36,8 @@
   const el = {};
   ("camera stage playfield aim balllayer radar fx feverFlash hud score comboPill combo timer pauseBtn " +
    "fever feverFill weaponBtn weaponImg homeScreen homeMascot missionChip missionText missionReward playBtn dexStrip weapBar " +
-   "homeBest homeLevel homeCoins soundBtn endScreen endEmoji finalScore eCaught eCombo eCoins " +
+   "homeBest homeCoins soundBtn playerLevel playerNameTop lvlRing passLevel passXp passFill homeTop3 " +
+   "endScreen endEmoji finalScore eCaught eCombo eCoins " +
    "newRecord newSpecies missionDone nameRow playerName saveScoreBtn againBtn homeBtn top3 toast")
     .split(" ").forEach((k) => { el[k] = $(k.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase())); });
 
@@ -635,21 +636,47 @@
     });
   }
 
+  function renderTop3Into(elm) {
+    const list = D.board().slice(0, 3); elm.innerHTML = "";
+    const medals = ["🥇", "🥈", "🥉"];
+    if (!list.length) { elm.innerHTML = `<li><span class="n" style="text-align:center">היה הראשון בלוח! 🚀</span></li>`; return; }
+    list.forEach((e, i) => { const li = document.createElement("li"); li.innerHTML = `<span class="r">${medals[i]}</span><span class="n">${esc(e.name)}</span><span class="p">${e.score}</span>`; elm.appendChild(li); });
+  }
+
   function refreshHome() {
     const p = D.profile();
+    const lvl = D.levelFromXp(p.xp);
+    const cur = D.xpForLevel(lvl), next = D.xpForLevel(lvl + 1);
+    const frac = Math.max(0, Math.min(1, (p.xp - cur) / Math.max(1, next - cur)));
     renderWeaponBar();
     el.homeMascot.src = D.SPECIES[0].uri;
     el.homeBest.textContent = D.bestScore();
-    el.homeLevel.textContent = D.levelFromXp(p.xp);
     el.homeCoins.textContent = p.coins;
+    el.playerLevel.textContent = lvl;
+    el.passLevel.textContent = lvl;
+    el.passXp.textContent = `${p.xp - cur} / ${next - cur} XP`;
+    el.passFill.style.width = (frac * 100) + "%";
+    el.lvlRing.style.setProperty("--xp", (frac * 100) + "%");
+    el.playerNameTop.textContent = localStorage.getItem("pangogo.name") || "שחקן";
     const m = D.mission();
     el.missionText.textContent = m.text + (m.done ? " ✅" : ` (${Math.min(m.progress, m.target)}/${m.target})`);
     el.missionReward.textContent = "+" + m.reward;
     renderDexStrip();
+    renderTop3Into(el.homeTop3);
+  }
+
+  function showTab(name) {
+    if (name === "sound") {   // sound tab toggles audio instead of switching panes
+      const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
+      el.soundBtn.querySelector(".ic").textContent = s.sound ? "🔊" : "🔇";
+      return;
+    }
+    document.querySelectorAll("#home-screen .tabpane").forEach((p) => p.classList.toggle("act", p.dataset.pane === name));
+    document.querySelectorAll("#home-screen .tab").forEach((t) => t.classList.toggle("act", t.dataset.tab === name));
   }
 
   // ---------- wire up ----------
-  function goHome() { hide(el.endScreen); refreshHome(); show(el.homeScreen); }
+  function goHome() { hide(el.endScreen); refreshHome(); showTab("home"); show(el.homeScreen); }
 
   function bind() {
     bindInput();
@@ -663,13 +690,13 @@
       localStorage.setItem("pangogo.name", name); D.addScore(name, S.score);
       hide(el.nameRow); renderTop3();
     });
-    el.soundBtn.addEventListener("click", () => {
-      const s = D.settings(); s.sound = !s.sound; D.saveSettings(s); A.toggle(s.sound);
-      el.soundBtn.textContent = s.sound ? "🔊" : "🔇";
-    });
+    // bottom tab bar + home shortcut icons
+    document.querySelectorAll("#home-screen .tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+    document.getElementById("to-weapons")?.addEventListener("click", () => showTab("weapons"));
+    document.getElementById("to-dex")?.addEventListener("click", () => showTab("dex"));
     document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden && S.running) ensureCamera(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
-    el.soundBtn.textContent = D.settings().sound ? "🔊" : "🔇";
+    el.soundBtn.querySelector(".ic").textContent = D.settings().sound ? "🔊" : "🔇";
     refreshHome();
   }
 
