@@ -7,8 +7,8 @@ PANGO.Data = (() => {
   // ---- species (each is a recoloured Pango mascot) ----
   // Cohesive Pango palette: shades of blue + a white one, gold as the legendary.
   const SPECIES = [
-    { id: "azure", name: "פַּנְגּוֹ",  rarity: "common",    points: 10, weight: 44, body: ["#2f86ff", "#1f6dff"], belly: "#bcd8ff", stripe: "#1f6dff" },
-    { id: "sky",   name: "תְּכֵלֶת",  rarity: "common",    points: 10, weight: 30, body: ["#7fc0ff", "#3f97ff"], belly: "#e3f1ff", stripe: "#5fa8ff" },
+    { id: "azure", name: "פַּנְגּוֹ",  rarity: "common",    points: 10, weight: 44, body: ["#5b6cff", "#3d52f0"], belly: "#c3cbff", stripe: "#3d52f0" },
+    { id: "sky",   name: "תְּכֵלֶת",  rarity: "common",    points: 10, weight: 30, body: ["#7f93ff", "#4f63f5"], belly: "#dfe4ff", stripe: "#5b6cff" },
     { id: "teal",  name: "טוּרְקִיז", rarity: "uncommon",  points: 15, weight: 14, body: ["#34d6c8", "#12a99c"], belly: "#b6f0ea", stripe: "#1fc4b6" },
     { id: "royal", name: "מַלְכוּתִי", rarity: "uncommon",  points: 15, weight: 12, body: ["#5b6bff", "#2f3fe0"], belly: "#c8ccff", stripe: "#4452f0" },
     { id: "snow",  name: "שַׁלְגִּי",  rarity: "rare",      points: 25, weight: 7,  body: ["#ffffff", "#dbe7ff"], belly: "#f2f7ff", stripe: "#1f6dff" },
