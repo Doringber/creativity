@@ -9,6 +9,7 @@
 (() => {
   "use strict";
   const A = PANGO.Audio, D = PANGO.Data;
+  const BUILD = "v21";   // bump alongside sw.js cache; shown on home so we can confirm the live build
 
   const ROUND_SECONDS = 70;
   const HFOV = 80;
@@ -907,14 +908,25 @@
     addEventListener("popstate", () => { if (S.running) pushGameGuard(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
     el.soundBtn.querySelector(".ic").textContent = D.settings().sound ? "🔊" : "🔇";
+    const bt = document.getElementById("buildtag"); if (bt) bt.textContent = BUILD;
     refreshHome();
   }
 
   if ("serviceWorker" in navigator) {
     let refreshing = false;
     const hadController = !!navigator.serviceWorker.controller; // only reload on real UPDATES, not first install
-    navigator.serviceWorker.addEventListener("controllerchange", () => { if (refreshing || !hadController || S.running) return; refreshing = true; location.reload(); });
-    addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    const doReload = () => { if (refreshing || !hadController || S.running) return; refreshing = true; location.reload(); };
+    navigator.serviceWorker.addEventListener("controllerchange", doReload);
+    addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").then((reg) => {
+        reg.update();                       // force an update check every launch (iOS PWAs are sticky)
+        // if a new worker is already waiting/installing, take it over and reload
+        const promote = (w) => w && w.addEventListener("statechange", () => { if (w.state === "installed") doReload(); });
+        if (reg.waiting) doReload();
+        promote(reg.installing);
+        reg.addEventListener("updatefound", () => promote(reg.installing));
+      }).catch(() => {});
+    });
   }
   bind();
 })();
