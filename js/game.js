@@ -9,7 +9,7 @@
 (() => {
   "use strict";
   const A = PANGO.Audio, D = PANGO.Data;
-  const BUILD = "v23";   // bump alongside sw.js cache; shown on home so we can confirm the live build
+  const BUILD = "v24";   // bump alongside sw.js cache; shown on home so we can confirm the live build
 
   const ROUND_SECONDS = 70;
   const HFOV = 80;
@@ -511,13 +511,13 @@
   }
   function startFever() {
     S.feverMode = true; S.feverEndsAt = performance.now() + FEVER_SECONDS * 1000;
-    document.body.classList.add("fever"); A.sfx.levelup(); vibrate([40, 30, 40, 30, 80]); shake(12, 400);
+    document.body.classList.add("fevermode"); A.sfx.levelup(); vibrate([40, 30, 40, 30, 80]); shake(12, 400);
     toast("🔥 PANGO FEVER!  ניקוד כפול!");
     restartSpawn();
     // quick burst of spawns
     for (let i = 0; i < 4; i++) later(spawn, i * 120);
   }
-  function endFever() { S.feverMode = false; S.fever = 0; document.body.classList.remove("fever"); restartSpawn(); }
+  function endFever() { S.feverMode = false; S.fever = 0; document.body.classList.remove("fevermode"); restartSpawn(); }
 
   function bumpMission(sp) {
     const m = D.mission(); if (m.done) return;
@@ -654,7 +654,7 @@
     if (armed.lure || armed.doubler) later(() => toast((armed.lure ? "🧲 פיתיון פעיל " : "") + (armed.doubler ? "💰 ×2 מטבעות" : "")), 3300);
     clearCreatures(); clearTraps(); clearFruits(); clearLaters();
     [el.balllayer, el.fx, el.radar, el.aim].forEach((n) => n.innerHTML = "");
-    document.body.classList.remove("fever");
+    document.body.classList.remove("fevermode");
     document.body.classList.toggle("slice-mode", mode === "slice");
     document.body.classList.add("playing");
     pushGameGuard();   // trap the back gesture so a swipe-right doesn't leave mid-game
@@ -677,7 +677,7 @@
     S.running = false; clearInterval(S.spawnTimer); clearInterval(S.tickTimer); clearInterval(S.fruitTimer); clearCreatures(); clearTraps(); clearFruits(); clearLaters();
     document.body.classList.remove("slice-mode");
     el.balllayer.innerHTML = ""; el.aim.innerHTML = "";
-    document.body.classList.remove("playing", "fever");
+    document.body.classList.remove("playing", "fevermode");
     [el.hud, el.fever, el.weaponBtn].forEach(hide); el.stage.style.transform = "";
     A.stopMusic(); A.sfx.end();
 
