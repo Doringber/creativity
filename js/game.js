@@ -638,6 +638,9 @@
   }
 
   // ---------- flow ----------
+  // Block the iOS/Android back-swipe (and browser Back) from leaving mid-game.
+  function pushGameGuard() { try { history.pushState({ pangoGame: true }, ""); } catch {} }
+
   function startGame(mode) {
     mode = mode || S.mode || "hunt";
     const cfg = MODES[mode] || MODES.hunt;
@@ -653,6 +656,7 @@
     document.body.classList.remove("fever");
     document.body.classList.toggle("slice-mode", mode === "slice");
     document.body.classList.add("playing");
+    pushGameGuard();   // trap the back gesture so a swipe-right doesn't leave mid-game
     [el.homeScreen, el.endScreen].forEach(hide);
     [el.hud, el.fever].forEach(show);
     el.weaponBtn.classList.toggle("hidden", mode === "slice");   // no weapon in slice mode
@@ -899,6 +903,8 @@
       el.soundBtn.querySelector(".ic").textContent = s.sound ? "🔊" : "🔇";
     });
     document.addEventListener("visibilitychange", () => { if (document.hidden && S.running && !S.paused) togglePause(); else if (!document.hidden && S.running) ensureCamera(); });
+    // swipe-right / Back during a game shouldn't navigate away — re-arm the guard and stay put
+    addEventListener("popstate", () => { if (S.running) pushGameGuard(); });
     addEventListener("resize", () => { W = innerWidth; H = innerHeight; });
     el.soundBtn.querySelector(".ic").textContent = D.settings().sound ? "🔊" : "🔇";
     refreshHome();
