@@ -9,7 +9,7 @@
 (() => {
   "use strict";
   const A = PANGO.Audio, D = PANGO.Data;
-  const BUILD = "v22";   // bump alongside sw.js cache; shown on home so we can confirm the live build
+  const BUILD = "v23";   // bump alongside sw.js cache; shown on home so we can confirm the live build
 
   const ROUND_SECONDS = 70;
   const HFOV = 80;
