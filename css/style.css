@@ -88,10 +88,11 @@ body.playing #stage{pointer-events:auto;}
   transition:opacity .25s;filter:drop-shadow(0 6px 8px rgba(8,30,80,.45));}
 .trap-deployed img{width:100%;height:100%;object-fit:contain;}
 .trap-deployed::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:3px dashed var(--gold);animation:pulse 1.3s ease-out infinite;}
-.fever-flash{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;
-  transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;
-  background:radial-gradient(circle at 50% 50%,rgba(255,195,43,.0) 40%,rgba(255,195,43,.35) 100%);transition:opacity .4s;}
-body.fever .fever-flash{opacity:1;animation:feverpulse 1s ease-in-out infinite;}
+/* Fever overlay disabled: a full-screen animated layer over the camera <video>
+   blanks the video to white on iOS Safari. Fever feedback now comes from the
+   bar color, screen shake and toast instead. */
+.fever-flash{display:none !important;}
+body.fever .fever-flash{display:none !important;}
 @keyframes feverpulse{0%,100%{opacity:.5;}50%{opacity:1;}}
 .countdown{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
   font-family:"Rubik",sans-serif;font-size:150px;font-weight:700;color:#fff;text-shadow:0 6px 0 var(--blue-dk),0 0 40px rgba(255,255,255,.6);pointer-events:none;}
