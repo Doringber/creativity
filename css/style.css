@@ -10,8 +10,7 @@ b{font-weight:800;}
 
 /* camera */
 #camera,.camera-fallback{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;}
-/* keep the video on its own GPU layer so overlay animations (e.g. Fever) can't blank it on iOS */
-#camera{z-index:1;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform;}
+#camera{z-index:1;}
 .camera-fallback{z-index:0;display:block;background:radial-gradient(circle at 82% 15%, #fff0bf 0 46px, rgba(255,240,191,0) 48px),radial-gradient(120px 46px at 24% 26%, #ffffff 0 58%, rgba(255,255,255,0) 60%),radial-gradient(150px 54px at 68% 36%, #ffffff 0 58%, rgba(255,255,255,0) 60%),radial-gradient(160% 220px at 50% 118%, #c9d8f5 0 60%, rgba(201,216,245,0) 61%),radial-gradient(150% 180px at 30% 124%, #d8e3f7 0 60%, rgba(216,227,247,0) 61%),linear-gradient(180deg,#d4e7ff,#eef3ff 70%);}
 body.no-cam #camera{display:none;}
 .buildtag{position:fixed;top:calc(6px + var(--safe-top));left:50%;transform:translateX(-50%);z-index:60;
@@ -126,8 +125,11 @@ body.fever .fever-flash{display:none !important;}
 .fever-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue2),var(--gold));transition:width .25s ease;}
 .fever-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:"Rubik",sans-serif;
   font-size:13px;font-weight:700;letter-spacing:2px;color:var(--ink);}
-body.fever .fever-fill{background:linear-gradient(90deg,var(--gold),#ff7a2a,var(--gold));animation:feverbar .6s linear infinite;}
-@keyframes feverbar{to{filter:hue-rotate(20deg);}}
+/* NOTE: never animate `filter` here — on iOS Safari an infinite filter animation
+   creates a compositing layer that knocks the full-screen camera <video> out and
+   the screen goes white for the whole Fever. Animate background-position instead. */
+body.fever .fever-fill{background:linear-gradient(90deg,var(--gold),#ff7a2a,var(--gold));background-size:200% 100%;animation:feverbar 1s linear infinite;}
+@keyframes feverbar{to{background-position:200% 0;}}
 
 /* overlays */
 .overlay{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;padding:16px;}
